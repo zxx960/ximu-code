@@ -9,7 +9,7 @@ English | [中文](guide.zh.md)
 
 ## Change
 
-The Desktop profile uses the Ximu management API for email/password login and recharge balances. Existing DeepSeek account grants remain stored but do not sign into the Desktop Ximu account. The account settings page omits bonus balances. Other profiles retain browser authorization.
+The Desktop profile uses the Ximu management API for email/password login and recharge balances. Existing DeepSeek account grants remain stored but do not sign into the Desktop Ximu account. The account settings page omits bonus balances. Desktop Welcome requires account sign-in and offers no API-key or skip action; a model key does not bypass sign-out or account expiry. Desktop onboarding no longer reads model-key presence through preload. Other profiles retain browser authorization.
 
 ## Migration
 

@@ -24,9 +24,6 @@ export class DesktopOnboardingController {
   private draft: OnboardingProgress | undefined
   private updates: Promise<boolean> = Promise.resolve(true)
   private disposed = false
-  private credentialGeneration = 0
-  private hasApiKey: boolean | undefined
-  private checkingKeys = false
   private error: 'settings' | null = null
   private failedWrite: { next: OnboardingProgress; applyPreferences: boolean } | undefined
   private creditFunded: boolean | undefined
@@ -37,14 +34,12 @@ export class DesktopOnboardingController {
    * @param setDeveloperTools - persist enablement through the shared developer-tools preference.
    * @param account - safe account state, initially unresolved.
    * @param settings - shared settings reader exposing initial failures and retry.
-   * @param readApiKeyPresence - reads configured model-credential metadata without secrets.
    */
   constructor(
     private readonly progress: ConfigForm<OnboardingSettings>,
     private readonly chat: ConfigForm<{ transcriptView?: TranscriptViewMode | null; performanceUsage: 'compact' | 'detailed' }>,
     private readonly setDeveloperTools: (enabled: boolean) => Promise<void>,
     private readonly account: HostObservable<AccountSnapshot>,
-    private readonly readApiKeyPresence: () => Promise<boolean>,
     private readonly settings: SettingsDescribeFace,
   ) {
     this.disposers = [
@@ -53,18 +48,6 @@ export class DesktopOnboardingController {
       chat.subscribe(() => { this.derive() }),
       account.subscribe(() => { this.derive() }),
     ]
-    this.derive()
-  }
-
-  /** Recheck credential metadata after a provider or credential invalidation. */
-  invalidateCredentials(): void {
-    this.credentialGeneration++
-    this.checkingKeys = false
-    this.hasApiKey = undefined
-    if (this.failedWrite?.next.completion === 'api-key') {
-      this.error = null
-      this.failedWrite = undefined
-    }
     this.derive()
   }
 
@@ -144,7 +127,6 @@ export class DesktopOnboardingController {
   /** Remove subscriptions and prevent delayed metadata reads from writing progress. */
   dispose(): void {
     this.disposed = true
-    this.credentialGeneration++
     for (const dispose of this.disposers) dispose()
   }
 
@@ -206,10 +188,6 @@ export class DesktopOnboardingController {
     else if (this.creditFunded === undefined && host.status === 'ready' && progress.step === 'credit') {
       this.creditFunded = hasOnboardingCredit(snapshot.details?.balance)
     }
-    if (signedIn && this.failedWrite?.next.completion === 'api-key') {
-      this.failedWrite = undefined
-      this.error = null
-    }
     const done = progress.step === 'done'
     const unavailable = host.status === 'unavailable' || (host.status === 'ready' && !host.writable)
     const readFailed = host.status === 'loading' && this.settings.getSnapshot().error !== null
@@ -224,23 +202,5 @@ export class DesktopOnboardingController {
       error: unavailable || readFailed ? 'settings' : this.error,
     }
     if (!shallowEqual(previous, next)) this.state.set(next)
-    if (done || this.saving || this.completing || this.draft !== undefined || unavailable || host.status !== 'ready' || this.chat.getSnapshot().status !== 'ready'
-      || account?.status !== 'signed-out') return
-    if (this.hasApiKey === true && this.error === null) {
-      void this.save({ ...progress, step: 'done', process: 'standard', usage: 'detailed', developerTools: true, completion: 'api-key' }, true)
-    } else if (this.hasApiKey === undefined && !this.checkingKeys) {
-      this.checkingKeys = true
-      const generation = this.credentialGeneration
-      void this.readApiKeyPresence().then((present) => {
-        if (this.disposed || generation !== this.credentialGeneration) return
-        this.hasApiKey = present
-        this.checkingKeys = false
-        this.derive()
-      }).catch(() => {
-        if (this.disposed || generation !== this.credentialGeneration) return
-        this.checkingKeys = false
-        this.hasApiKey = false
-      })
-    }
   }
 }

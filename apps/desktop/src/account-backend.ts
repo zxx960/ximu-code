@@ -22,24 +22,16 @@ export function accountView(value: unknown): AccountView {
   validateBrowserDestination(value.links.topUpUrl)
   const attempt = value.attempt
   if (attempt !== null && (typeof attempt !== 'object' || !('id' in attempt) || typeof attempt.id !== 'string'
-    || !('phase' in attempt) || !['initializing', 'waiting-browser', 'exchanging', 'committing', 'succeeded', 'cancelled', 'expired', 'failed'].includes(String(attempt.phase))
-    || ('authorizeUrl' in attempt && typeof attempt.authorizeUrl !== 'string')
-    || ('expiresAt' in attempt && (typeof attempt.expiresAt !== 'number' || !Number.isFinite(attempt.expiresAt)))
+    || !('phase' in attempt) || !['initializing', 'committing', 'succeeded', 'cancelled', 'failed'].includes(String(attempt.phase))
     || ('errorCode' in attempt && !['no-response', 'network', 'protocol', 'expired', 'storage', 'invalid-credentials'].includes(String(attempt.errorCode))))) {
     throw new Error('desktop account: invalid attempt')
   }
-  if (attempt !== null && 'authorizeUrl' in attempt) {
-    validateBrowserDestination(String(attempt.authorizeUrl))
-  }
   const parsed = value as AccountView
   return {
-    ...parsed.loginMethod === 'password' ? { loginMethod: 'password' as const } : {},
     status: parsed.status,
     links: { usageUrl: parsed.links.usageUrl, topUpUrl: parsed.links.topUpUrl },
     attempt: parsed.attempt === null ? null : {
       id: parsed.attempt.id, phase: parsed.attempt.phase,
-      ...parsed.attempt.authorizeUrl === undefined ? {} : { authorizeUrl: parsed.attempt.authorizeUrl },
-      ...parsed.attempt.expiresAt === undefined ? {} : { expiresAt: parsed.attempt.expiresAt },
       ...parsed.attempt.errorCode === undefined ? {} : { errorCode: parsed.attempt.errorCode },
     },
   }
@@ -58,8 +50,6 @@ function validateBrowserDestination(value: string): void {
 export interface DesktopAccountBackend {
   /** @returns current account snapshot. */
   state(): Promise<AccountView>
-  /** @param client - this window's identity and current language. @returns new or already-running login attempt. */
-  start(client: AccountClientMetadata): Promise<AccountView>
   /** @param email - account email. @param password - transient password. @returns settled login state. */
   signInWithPassword(email: string, password: string): Promise<AccountView>
   /** @param id - attempt to cancel. @returns cancellation or completed commit state. */
@@ -92,7 +82,6 @@ export function desktopAccountBackend(origin: string, invoke: AccountInvoke, coo
   return {
     state: () => call('getState'),
     signInWithPassword: (email, password) => call('signInWithPassword', { email, password }),
-    start: client => call('startSignIn', { client, callbackOrigin: new URL(origin).origin, loginSource: 'desktop' }),
     cancel: attemptId => call('cancelSignIn', { attemptId }), signOut: client => call('signOut', { client }),
     watch(listener, failed, expired, onAnalyticsEnabledChanged) {
       let closed = false

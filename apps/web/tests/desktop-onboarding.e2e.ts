@@ -4,7 +4,6 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { connectDesktopWelcome } from '../../desktop/src/welcome-backend.ts'
 import { chromium, type Browser, type Page } from 'playwright'
 import { afterEach, beforeEach, describe, expect, it, onTestFailed } from 'vitest'
 import { credentialKey, credentialRef } from '@deepseek-ai/dsh-credentials'
@@ -107,11 +106,8 @@ describe.skipIf(MODE === 'record')('web e2e: App-only desktop onboarding', () =>
 
   async function desktopPage(locale = ZH_BROWSER_LOCALE): Promise<Page> {
     const opened = await browser.newPage({ viewport: { width: 1280, height: 840 }, locale, reducedMotion: 'reduce' })
-    const welcome = await connectDesktopWelcome(scaffold.authenticatedUrl, (input, init) => scaffold.hostFetch(input, init))
-    await opened.exposeFunction('__onboardingHasApiKey', async () => (await welcome.read()).hasApiKey)
     await opened.addInitScript(() => {
       Object.defineProperty(globalThis, 'dshOnboarding', { value: {
-        hasApiKey: () => (globalThis as typeof globalThis & { __onboardingHasApiKey(): Promise<boolean> }).__onboardingHasApiKey(),
         setActive: () => {},
       } })
       Object.defineProperty(globalThis, 'dshDesktop', { value: { protocolVersion: 1 } })
@@ -472,31 +468,21 @@ describe.skipIf(MODE === 'record')('web e2e: App-only desktop onboarding', () =>
     await page.close()
   })
 
-  it('applies API-key defaults without opening App onboarding or repeating after account login', async () => {
+  it('does not finish desktop setup from a model key before account login', async () => {
     await scaffold.ctx.credentials.deleteRecord(credentialKey('deepseek-account-platform', 'default'))
     await scaffold.ctx.credentials.set(credentialRef('DEEPSEEK_API_KEY'), 'fixture-api-key')
     await scaffold.ctx.settings.mutate(NS, Object.entries(INITIAL).map(([field, value]) => ({ op: 'set', path: [field], value })))
     page = await desktopPage()
-    // Completion follows client activation, credential metadata, and three ordered Host writes.
-    const completed = page.waitForResponse((response) => {
-      if (!response.url().endsWith('/api/settings/mutate')) return false
-      const request = response.request().postDataJSON() as { payload: { args: { ns: string } } }
-      return request.payload.args.ns === NS
-    })
-    const [response] = await Promise.all([completed, page.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })])
-    await response.finished()
-    expect(await response.json()).toMatchObject({ result: { ok: true } })
-    expect((scaffold.ctx.settings.describe().find(row => row.ns === NS)?.value as { step: string }).step).toBe('done')
+    await page.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
+    await page.getByRole('button', { name: '账号菜单', exact: true }).waitFor()
+    expect(scaffold.ctx.settings.describe().find(row => row.ns === NS)?.value).toMatchObject({ step: 'welcome', completion: null })
     expect(await page.locator('[data-desktop-onboarding]').count()).toBe(0)
-    expect(scaffold.ctx.settings.describe().find(row => row.ns === NS)?.value).toMatchObject({ completion: 'api-key', process: 'standard', usage: 'detailed', developerTools: true })
-    expect(scaffold.ctx.settings.describe().find(row => row.ns === 'ui-chat')?.value).toMatchObject({ transcriptView: 'standard', performanceUsage: 'detailed' })
-    expect(scaffold.ctx.settings.describe().find(row => row.ns === 'ui-settings')?.value).toMatchObject({ enabled: true })
     await scaffold.ctx.credentials.modifyRecord(credentialKey('deepseek-account-platform', 'default'), async () => ({
       kind: 'grant', payload: { version: 1, issuer: origin, token: 'onboarding-fixture-token' },
     }))
     await page.reload({ waitUntil: 'load' })
-    await page.getByText('选择一个工作区开始', { exact: true }).waitFor()
-    expect(await page.locator('[data-desktop-onboarding]').count()).toBe(0)
+    await page.locator('[data-desktop-onboarding="welcome"]').waitFor()
+    expect(scaffold.ctx.settings.describe().find(row => row.ns === NS)?.value).toMatchObject({ step: 'welcome', completion: null })
     await page.close()
   })
 })

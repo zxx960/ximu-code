@@ -56,7 +56,7 @@ async function mockAccount() {
 }
 
 describe.skipIf(!existsSync(builtHost))('built Desktop welcome flow', () => {
-  it('persists explicit API keys and password account login independently across Host restarts', async () => {
+  it('persists password account login across Host restarts', async () => {
     vi.stubEnv('DSH_CLIENT_VERSION', '1.2.3')
     const root = mkdtempSync(join(tmpdir(), 'dsh-desktop-welcome-'))
     let host: DesktopHostProcess | undefined
@@ -116,33 +116,28 @@ describe.skipIf(!existsSync(builtHost))('built Desktop welcome flow', () => {
       const fingerprint = (): string => createHash('sha256')
         .update(readFileSync(join(home, '.credentials.yaml'))).digest('hex')
       await restart()
-      expect(await status()).toMatchObject({ hasApiKey: false, localePreference: null })
+      expect(await status()).toMatchObject({ localePreference: null })
       const before = fingerprint()
       await host!.stop()
       writeFileSync(join(paths.profile, 'cordis.patch.yml'),
         readFileSync(join(paths.profile, 'cordis.patch.yml'), 'utf8') + '- id: locale\n  config:\n    preference: zh\n')
       await restart()
-      expect(await status()).toMatchObject({ hasApiKey: false, localePreference: 'zh' })
+      expect(await status()).toMatchObject({ localePreference: 'zh' })
       expect(fingerprint()).toBe(before)
-      expect(await backend!.save('sk-local-onboarding-test')).toEqual({ ok: true })
-      expect(await status()).toMatchObject({ hasApiKey: true, localePreference: 'zh' })
-      await restart()
-      expect(await status()).toMatchObject({ hasApiKey: true })
-      expect(await backend!.account.state()).toMatchObject({ loginMethod: 'password' })
       accountApi.failLogin(true)
       expect(await backend!.account.signInWithPassword('test@example.com', 'synthetic-password'))
         .toMatchObject({ status: 'signed-out', attempt: { phase: 'failed', errorCode: 'invalid-credentials' } })
-      expect(await status()).toMatchObject({ hasApiKey: true, loggedIn: false })
+      expect(await status()).toMatchObject({ loggedIn: false })
       accountApi.failLogin(false)
       const loggedIn = await backend!.account.signInWithPassword('test@example.com', 'synthetic-password')
       expect(loggedIn).toMatchObject({ status: 'credential-stored', attempt: { phase: 'succeeded' } })
       expect(JSON.stringify(loggedIn)).not.toContain('synthetic-account-token')
       expect(readFileSync(join(home, '.credentials.yaml'), 'utf8')).not.toContain('synthetic-password')
-      expect(await status()).toMatchObject({ hasApiKey: true, loggedIn: true })
+      expect(await status()).toMatchObject({ loggedIn: true })
       await restart()
-      expect(await status()).toMatchObject({ hasApiKey: true, loggedIn: true })
+      expect(await status()).toMatchObject({ loggedIn: true })
       await backend!.account.signOut(desktopClientMetadata('en'))
-      expect(await status()).toMatchObject({ hasApiKey: true, loggedIn: false })
+      expect(await status()).toMatchObject({ loggedIn: false })
       // A handle left open after acknowledged teardown must not fail the update handoff.
       vi.stubEnv('NODE_OPTIONS', `--import=data:text/javascript,${encodeURIComponent(
         "process.on('message', message => { if (message?.type === 'shutdown') setInterval(() => {}, 1000) })")}`)

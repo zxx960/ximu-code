@@ -755,7 +755,7 @@ for (const native of [false, true]) it(`exposes desktop progress actions and dis
   expect(mock.remote.account.getBalance).not.toHaveBeenCalled()
 }, 60_000)
 
-it('applies API-key defaults through the desktop slot and shared configuration owners', async ({ start, mock }) => {
+it('requires account sign-in before desktop setup even when a model key exists', async ({ start, mock }) => {
   vi.stubGlobal('dshDesktop', {})
   const values: Record<string, object> = {
     'ui-settings-account': { version: 1, step: 'welcome', purpose: null, process: null, completion: null, usage: 'compact', developerTools: false },
@@ -778,8 +778,10 @@ it('applies API-key defaults through the desktop slot and shared configuration o
   })
   const c = await start()
   const injected = c.ctx.slots.entries('shell.overlay').find(entry => entry.options.id === 'desktop-onboarding')!.inject!() as object as DesktopOnboardingInjected
-  await vi.waitFor(() => { expect(injected.hooks.onboarding.getSnapshot().progress.step).toBe('done') })
-  expect(hasApiKey).toHaveBeenCalled()
-  expect(values['ui-settings']).toEqual({ enabled: true })
-  expect(values['ui-chat']).toMatchObject({ transcriptView: 'standard' })
+  await c.flush()
+  expect(injected.hooks.onboarding.getSnapshot().progress.step).toBe('welcome')
+  expect(hasApiKey).not.toHaveBeenCalled()
+  expect(mock.remote.settings.mutate).not.toHaveBeenCalled()
+  expect(values['ui-settings']).toEqual({ enabled: false })
+  expect(values['ui-chat']).toMatchObject({ transcriptView: 'compact' })
 }, 60_000)
