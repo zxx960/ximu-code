@@ -8,6 +8,8 @@ description: "Desktop 在原生应用中运行 Harness 工作区。本参考文�
 
 ## 概述
 
+桌面欢迎页通过[西牧账号服务](../../packages/credentials/account-ximu/README.zh.md)使用邮箱和密码登录。账号设置显示充值余额，不显示赠金余额；此账号不创建模型密钥或推理路由。
+
 Desktop 在原生应用中运行 Harness 工作区。本参考文档说明应用行为、开发与集成；打包、Windows 签名和发布指南分别维护构建与发布操作。
 
 ## 目录

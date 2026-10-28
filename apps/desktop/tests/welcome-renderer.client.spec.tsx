@@ -11,6 +11,26 @@ import type { WelcomeSaveResult, WelcomeNotice } from '../src/welcome-api.ts'
 const html = readFileSync(join(import.meta.dirname, '../renderer/welcome.html'), 'utf8')
 afterEach(cleanup)
 
+it('submits the native password form and clears the secret after a failed login', async () => {
+  const view = mount()
+  cleanup()
+  const signInWithPassword = vi.fn(async (): Promise<AccountView> => ({
+    loginMethod: 'password', status: 'signed-out', links: { usageUrl: 'https://example.com', topUpUrl: 'https://example.com' },
+    attempt: { id: 'synthetic-attempt' as import('@deepseek-ai/dsh-deepseek-account/types').SignInAttemptId,
+      phase: 'failed', errorCode: 'invalid-credentials' },
+  }))
+  render(<Welcome api={{ ...view.api, signInWithPassword }} />)
+  fireEvent.click(document.querySelector('#sign-in')!)
+  fireEvent.change(screen.getByLabelText(view.api.messages.welcomeEmail), { target: { value: 'test@example.com' } })
+  const password = screen.getByLabelText<HTMLInputElement>(view.api.messages.welcomePassword)
+  fireEvent.change(password, { target: { value: 'synthetic-password' } })
+  await act(async () => { fireEvent.submit(document.querySelector('#password-form')!) })
+  expect(signInWithPassword).toHaveBeenCalledExactlyOnceWith('test@example.com', 'synthetic-password')
+  expect(password.value).toBe('')
+  expect(document.querySelector('#password-error')!.textContent).toBe(view.api.messages.welcomeInvalidCredentials)
+  expect(view.api.startSignIn).not.toHaveBeenCalled()
+})
+
 function mount(language = 'zh-CN', takeNotice = vi.fn<() => Promise<WelcomeNotice | undefined>>().mockResolvedValue(undefined)) {
   cleanup()
   const stopAccount = vi.fn()

@@ -1057,6 +1057,12 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         returns: 'the initial snapshot without waiting for browser approval.',
       },
       {
+        signature: 'signInWithPassword(_email: string, _password: string): Promise<AccountView>',
+        description: 'Submit credentials to a password account provider; browser-only providers reject without storing them.',
+        parameters: [{ name: '_email', description: 'account email; never persisted by this operation.' }, { name: '_password', description: 'password used only for this request, never persisted or logged.' }],
+        returns: 'settled login state, including a display-safe failure code.',
+      },
+      {
         signature: 'abstract cancelSignIn(id: SignInAttemptId): Promise<AccountView>',
         description: 'Cancel only the named attempt; committing attempts settle before returning.',
         parameters: [{ name: 'id', description: 'attempt identity from this Host.' }],
@@ -5325,11 +5331,11 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'AccountView',
-    declaration: 'export interface AccountView {\n    readonly status: \'signed-out\' | \'credential-stored\';\n    readonly links: AccountLinks;\n    readonly attempt: SignInAttemptView | null;\n}',
+    declaration: 'export interface AccountView {\n    readonly loginMethod?: \'password\';\n    readonly status: \'signed-out\' | \'credential-stored\';\n    readonly links: AccountLinks;\n    readonly attempt: SignInAttemptView | null;\n}',
   },
   {
     name: 'AccountWallet',
-    declaration: 'export interface AccountWallet {\n    readonly currency: \'CNY\' | \'USD\';\n    readonly balance: string;\n}',
+    declaration: 'export interface AccountWallet {\n    readonly currency?: \'CNY\' | \'USD\';\n    readonly balance: string;\n}',
   },
   {
     name: 'ActionCardDecision',
@@ -8769,7 +8775,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'SignInErrorCode',
-    declaration: 'export type SignInErrorCode = \'no-response\' | \'network\' | \'protocol\' | \'expired\' | \'storage\';',
+    declaration: 'export type SignInErrorCode = \'no-response\' | \'network\' | \'protocol\' | \'expired\' | \'storage\' | \'invalid-credentials\';',
   },
   {
     name: 'SkillCandidate',

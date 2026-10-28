@@ -8,6 +8,8 @@ English | [中文](README.zh.md)
 
 ## Summary
 
+The Desktop welcome page signs in to the [Ximu account service](../../packages/credentials/account-ximu/README.md) with email and password. Account settings display its recharge balance without bonus balances; this account does not provision model keys or inference routes.
+
 Desktop runs the Harness workspace in a native application. This reference covers application behavior, development and integration; the packaging, Windows signing and publication guides own build and release operations.
 
 ## Table of Contents

@@ -18,9 +18,9 @@ export type SignInAttemptId = Branded<'SignInAttemptId'>
  * Safe failure codes rendered through the caller's locale dictionary.
  * `no-response`: fetch returned no Response; `network`: HTTP or account-detail retrieval failure.
  * `protocol`: invalid response or authorization data; `expired`: authorization expired;
- * `storage`: local credential access or commit failed.
+ * `storage`: local credential access or commit failed; `invalid-credentials`: password login was rejected.
  */
-export type SignInErrorCode = 'no-response' | 'network' | 'protocol' | 'expired' | 'storage'
+export type SignInErrorCode = 'no-response' | 'network' | 'protocol' | 'expired' | 'storage' | 'invalid-credentials'
 /** Latest login attempt, including terminal outcomes until the next attempt. */
 export interface SignInAttemptView {
   readonly id: SignInAttemptId
@@ -36,6 +36,8 @@ export interface AccountLinks {
 }
 /** Stored-account presence is not a claim that the server has validated its token. */
 export interface AccountView {
+  /** Password form when present; omission selects browser authorization. */
+  readonly loginMethod?: 'password'
   readonly status: 'signed-out' | 'credential-stored'
   readonly links: AccountLinks
   readonly attempt: SignInAttemptView | null
@@ -53,7 +55,8 @@ export interface AccountProfile {
 }
 /** Platform recharge or bonus wallet balance; decimal strings retain server precision. */
 export interface AccountWallet {
-  readonly currency: 'CNY' | 'USD'
+  /** Absent when the account API does not identify its balance currency. */
+  readonly currency?: 'CNY' | 'USD'
   readonly balance: string
 }
 /** Independent query outcomes allow profile and balance failures to render separately. */

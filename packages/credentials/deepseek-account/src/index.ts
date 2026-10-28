@@ -74,6 +74,15 @@ export abstract class DeepSeekAccount extends Service {
    */
   abstract startSignIn(client: AccountClientMetadata, callbackOrigin: string, loginSource: 'web' | 'desktop'): Promise<AccountView>
   /**
+   * Submit credentials to a password account provider; browser-only providers reject without storing them.
+   * @param _email - account email; never persisted by this operation.
+   * @param _password - password used only for this request, never persisted or logged.
+   * @returns settled login state, including a display-safe failure code.
+   */
+  signInWithPassword(_email: string, _password: string): Promise<AccountView> {
+    return Promise.reject(new Error('account: password sign-in is unavailable'))
+  }
+  /**
    * Cancel only the named attempt; committing attempts settle before returning.
    * @param id - attempt identity from this Host.
    * @returns state after cancellation or an already-started commit.

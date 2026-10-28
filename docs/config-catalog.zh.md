@@ -11,6 +11,29 @@
 
 每个包的条目用三个标识符标注：`inject` 列出插件注入的服务键，其 `cordis.yml` 树还必须加载这些服务的提供者；`refs` 列出声明引用、但未粘贴在此处的类型；`source` 链接到声明配置的源文件。范围限定为 harness 层级（`packages/`）；配置树还可能加载的 vendored cordis 插件（控制台日志记录器等）固定为上游源代码（参见 [vendoring policy](../vendor/README.md)），未收录于此目录。
 
+<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-account-ximu -->
+<a id="deepseek-aidsh-account-ximu"></a>
+
+## `@deepseek-ai/dsh-account-ximu`
+
+- `inject`: `credentials`
+- `source`: [`packages/credentials/account-ximu/src/index.ts:15`](../packages/credentials/account-ximu/src/index.ts)
+
+```ts config-catalog
+/** Ximu management API and bounded request settings. */
+export interface Config {
+  /** API root containing auth/login and auth/me. */
+  baseURL?: string
+  /** Deadline for a complete management request. */
+  requestTimeoutMs?: number
+  /** Maximum bytes in one management response. */
+  maxResponseBytes?: number
+  /** Permit loopback HTTP for local API fixtures only. */
+  allowLoopbackHttp?: boolean
+}
+```
+<!-- END GENERATED config-catalog:@deepseek-ai/dsh-account-ximu -->
+
 <!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-acp -->
 <a id="deepseek-aidsh-acp"></a>
 

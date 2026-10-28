@@ -1682,3 +1682,10 @@ it('reads credential-free device identity without minting a device', async () =>
   await f.account.getProfile(clientMetadata())
   expect(await f.account.getDeviceIdentity()).toEqual({ deviceId, userId: 'test-user', osVersion: expect.any(String) as string })
 })
+
+
+it('rejects password sign-in on the browser-only account provider', async () => {
+  const f = await fixture()
+  await expect(f.account.signInWithPassword('test@example.com', 'synthetic-password')).rejects.toThrow('password sign-in is unavailable')
+  expect((await f.account.getState()).status).toBe('signed-out')
+})

@@ -6,7 +6,7 @@ import { StateDot } from '@deepseek-ai/dsh-client-ui-primitives/src/StateDot.tsx
 import type { AccountView } from '@deepseek-ai/dsh-deepseek-account/types'
 import type { WelcomeApi } from '../welcome-api.ts'
 
-type Page = 'entry' | 'key' | 'account'
+type Page = 'entry' | 'key' | 'account' | 'password'
 
 /**
  * Render the standalone welcome flow using shell-owned operations and localized copy.
@@ -27,12 +27,15 @@ export function Welcome({ api }: { api: WelcomeApi }) {
   const [copyFeedback, setCopyFeedback] = useState<{ status: 'idle' | 'busy' | 'copied' | 'failed' }>({ status: 'idle' })
   const copyState = copyFeedback.status
   const [draft, setDraft] = useState('')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const busyRef = useRef(false)
   const mounted = useRef(true)
   const revision = useRef(0)
   const input = useRef<HTMLInputElement>(null)
+  const emailInput = useRef<HTMLInputElement>(null)
   const keyButton = useRef<HTMLButtonElement>(null)
   const focusEntry = useRef(false)
 
@@ -41,6 +44,7 @@ export function Welcome({ api }: { api: WelcomeApi }) {
     setPage(next)
   }
   function showAccount(state: AccountView) {
+    if (pageRef.current === 'password') return
     if (pageRef.current === 'key' || (state.attempt === null && pageRef.current === 'entry')) return
     attemptRef.current = state.attempt
     setAttempt(state.attempt)
@@ -73,6 +77,7 @@ export function Welcome({ api }: { api: WelcomeApi }) {
     if (page === 'entry' && visiblePage.current !== 'entry') void api.analytics?.('auth_page_view', {})
     visiblePage.current = page
     if (page === 'key') input.current?.focus()
+    else if (page === 'password') emailInput.current?.focus()
     else if (page === 'entry' && focusEntry.current) {
       focusEntry.current = false
       keyButton.current?.focus()
@@ -126,6 +131,11 @@ export function Welcome({ api }: { api: WelcomeApi }) {
     }
   }
   async function start() {
+    if (api.signInWithPassword !== undefined) {
+      setError('')
+      navigate('password')
+      return
+    }
     navigate('account')
     setStarting(true)
     setAttempt(null)
@@ -136,6 +146,26 @@ export function Welcome({ api }: { api: WelcomeApi }) {
       if (mounted.current && revision.current === current) showAccount(state)
     } catch {
       if (mounted.current && revision.current === current) setStarting(false)
+    }
+  }
+  async function signIn(event: FormEvent) {
+    event.preventDefault()
+    if (busyRef.current || api.signInWithPassword === undefined) return
+    busyRef.current = true
+    setBusy(true)
+    setError('')
+    const secret = password
+    setPassword('')
+    try {
+      const state = await api.signInWithPassword(email.trim(), secret)
+      if (mounted.current && state.attempt?.phase !== 'succeeded') {
+        setError(state.attempt?.errorCode === 'invalid-credentials' ? m.welcomeInvalidCredentials : m.welcomeAuthFailed)
+      }
+    } catch {
+      if (mounted.current) setError(m.welcomeAuthFailed)
+    } finally {
+      busyRef.current = false
+      if (mounted.current) setBusy(false)
     }
   }
   async function cancel() {
@@ -169,7 +199,7 @@ export function Welcome({ api }: { api: WelcomeApi }) {
   const title = phase === 'initializing' ? m.welcomeAuthStarting
     : waiting ? m.welcomeAuthWaiting : phase === 'expired' ? m.welcomeAuthExpired
       : phase === 'failed' ? m.welcomeAuthFailed : m.welcomeAuthExchanging
-  const heading = page === 'entry' ? 'welcome-heading' : page === 'key' ? 'key-title' : 'auth-status'
+  const heading = page === 'entry' ? 'welcome-heading' : page === 'key' ? 'key-title' : page === 'password' ? 'password-title' : 'auth-status'
 
   return <>
     {expiryNotice && <Toast text={m.welcomeSessionExpired} onDone={() => { setExpiryNotice(false) }} />}
@@ -188,6 +218,18 @@ export function Welcome({ api }: { api: WelcomeApi }) {
             aria-describedby="key-description key-error" aria-invalid={error !== ''} placeholder={m.welcomeKeyPlaceholder}
             value={draft} disabled={busy} onChange={(event) => { setDraft(event.target.value); setError('') }} />
           <p id="key-error" className="key-error" role="alert" hidden={error === ''}>{error}</p>
+        </div>
+      </form>
+      <form id="password-form" className="key-form password-form" hidden={page !== 'password'} onSubmit={(event) => { void signIn(event) }} aria-busy={busy}>
+        <header className="key-heading"><h1 id="password-title">{m.welcomePasswordTitle}</h1></header>
+        <div className="key-field">
+          <label htmlFor="account-email">{m.welcomeEmail}</label>
+          <input ref={emailInput} id="account-email" type="email" autoComplete="username" required maxLength={320} value={email} disabled={busy}
+            onChange={(event) => { setEmail(event.target.value); setError('') }} />
+          <label htmlFor="account-password">{m.welcomePassword}</label>
+          <input id="account-password" type="password" autoComplete="current-password" required maxLength={4096} value={password} disabled={busy}
+            aria-describedby="password-error" onChange={(event) => { setPassword(event.target.value); setError('') }} />
+          <p id="password-error" className="key-error" role="alert" hidden={error === ''}>{error}</p>
         </div>
       </form>
       <section id="auth-page" className={`key-heading ${waiting ? 'auth-waiting' : phase === 'expired' ? 'auth-expired' : ''}`}
@@ -211,6 +253,12 @@ export function Welcome({ api }: { api: WelcomeApi }) {
       <div id="entry-actions" className="actions" hidden={page !== 'entry'}>
         <button id="sign-in" className="primary" type="button" onClick={() => { void api.analytics?.('auth_page_click', { button_name: 'sign_in' }); void start() }}>{m.welcomeSignIn}</button>
         <button ref={keyButton} id="api-key" className="secondary" type="button" onClick={() => { void api.analytics?.('auth_page_click', { button_name: 'api-key' }); navigate('key') }}>{m.welcomeApiKey}</button>
+      </div>
+      <div id="password-actions" className="actions" hidden={page !== 'password'}>
+        <button className="primary" type="submit" form="password-form" disabled={busy || email.trim() === '' || password === ''}>
+          {busy ? <StateDot state="ongoing" size={16} className="welcome-loading" /> : m.welcomeSignIn}
+        </button>
+        <button className="secondary" type="button" disabled={busy} onClick={() => { setPassword(''); setError(''); navigate('entry') }}>{m.welcomeKeyBack}</button>
       </div>
       <div id="key-actions" className="actions" hidden={page !== 'key'}>
         <button id="save-key" className="primary" type="submit" form="key-form" disabled={busy || draft.trim() === ''}>{m.welcomeKeySave}</button>

@@ -93,6 +93,10 @@ body {
   grid-column: 1;
 }
 
+.password-form .key-field { display: flex; flex-direction: column; gap: 8px; }
+.password-form label { align-self: flex-start; font-size: 14px; color: var(--dsw-alias-label-primary); }
+.password-form input { width: 100%; }
+
 .brand {
   display: block;
   flex: none;
@@ -341,3 +345,5 @@ body {
 .actions .welcome-loading { color: inherit; }
 
 .auth-waiting .copy-link:disabled { cursor: default; }
+
+.password-form { gap: 16px; max-width: 100%; }

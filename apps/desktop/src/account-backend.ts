@@ -25,7 +25,7 @@ export function accountView(value: unknown): AccountView {
     || !('phase' in attempt) || !['initializing', 'waiting-browser', 'exchanging', 'committing', 'succeeded', 'cancelled', 'expired', 'failed'].includes(String(attempt.phase))
     || ('authorizeUrl' in attempt && typeof attempt.authorizeUrl !== 'string')
     || ('expiresAt' in attempt && (typeof attempt.expiresAt !== 'number' || !Number.isFinite(attempt.expiresAt)))
-    || ('errorCode' in attempt && !['no-response', 'network', 'protocol', 'expired', 'storage'].includes(String(attempt.errorCode))))) {
+    || ('errorCode' in attempt && !['no-response', 'network', 'protocol', 'expired', 'storage', 'invalid-credentials'].includes(String(attempt.errorCode))))) {
     throw new Error('desktop account: invalid attempt')
   }
   if (attempt !== null && 'authorizeUrl' in attempt) {
@@ -33,6 +33,7 @@ export function accountView(value: unknown): AccountView {
   }
   const parsed = value as AccountView
   return {
+    ...parsed.loginMethod === 'password' ? { loginMethod: 'password' as const } : {},
     status: parsed.status,
     links: { usageUrl: parsed.links.usageUrl, topUpUrl: parsed.links.topUpUrl },
     attempt: parsed.attempt === null ? null : {
@@ -59,6 +60,8 @@ export interface DesktopAccountBackend {
   state(): Promise<AccountView>
   /** @param client - this window's identity and current language. @returns new or already-running login attempt. */
   start(client: AccountClientMetadata): Promise<AccountView>
+  /** @param email - account email. @param password - transient password. @returns settled login state. */
+  signInWithPassword(email: string, password: string): Promise<AccountView>
   /** @param id - attempt to cancel. @returns cancellation or completed commit state. */
   cancel(id: SignInAttemptId): Promise<AccountView>
   /** @param client - this window's identity. @returns state after local sign-out. */
@@ -88,6 +91,7 @@ export function desktopAccountBackend(origin: string, invoke: AccountInvoke, coo
     accountView(await invoke({ namespace: 'account', method, args }))
   return {
     state: () => call('getState'),
+    signInWithPassword: (email, password) => call('signInWithPassword', { email, password }),
     start: client => call('startSignIn', { client, callbackOrigin: new URL(origin).origin, loginSource: 'desktop' }),
     cancel: attemptId => call('cancelSignIn', { attemptId }), signOut: client => call('signOut', { client }),
     watch(listener, failed, expired, onAnalyticsEnabledChanged) {

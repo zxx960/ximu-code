@@ -6,7 +6,7 @@ import { apply, type AccountSectionInjected } from '../src/client/index.ts'
 
 afterEach(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs() })
 
-it.each(['accepted', 'refused', 'disconnected', 'pending'] as const)('initializes account models and keeps reading account state: %s', async (outcome) => {
+it.each(['accepted', 'refused', 'disconnected', 'pending', 'password'] as const)('initializes account models and keeps reading account state: %s', async (outcome) => {
   vi.stubGlobal('dshDesktop', {})
   vi.stubEnv('DSH_CLIENT_VERSION', '0.0.0-test')
   const log = vi.spyOn(console, 'error').mockImplementation(() => {})
@@ -22,9 +22,11 @@ it.each(['accepted', 'refused', 'disconnected', 'pending'] as const)('initialize
   })
   const links = { usageUrl: 'https://example.test/usage', topUpUrl: 'https://example.test/top_up' }
   const signedIn: AccountView = {
+    ...outcome === 'password' ? { loginMethod: 'password' as const } : {},
     status: 'credential-stored', links, attempt: { id: 'login' as SignInAttemptId, phase: 'succeeded' },
   }
-  const frames: AccountView[] = [signedIn, signedIn, { status: 'signed-out', links, attempt: null }]
+  const frames: AccountView[] = [signedIn, signedIn, { ...outcome === 'password' ? { loginMethod: 'password' as const } : {}, status: 'signed-out', links, attempt: null }]
+  const passwordSignIn = vi.fn(async (_email: string, _password: string) => ({ ok: true, value: signedIn }))
   const disposers: (() => void)[] = []
   let operations: AccountSectionInjected | undefined
   const ctx = {
@@ -55,7 +57,10 @@ it.each(['accepted', 'refused', 'disconnected', 'pending'] as const)('initialize
     remote: {
       $on: () => () => {},
       session: { initializeDefaultModel },
-      account: { getProfile: async () => ({ ok: true, value: null }), getBalance: async () => ({ ok: true, value: null }) },
+      account: {
+        signInWithPassword: passwordSignIn,
+        getProfile: async () => ({ ok: true, value: null }), getBalance: async () => ({ ok: true, value: null }),
+      },
       $stream: () => ({
         signal: abort.signal, dispose: () => { abort.abort(); release.resolve(undefined) },
         async *[Symbol.asyncIterator]() {
@@ -72,17 +77,25 @@ it.each(['accepted', 'refused', 'disconnected', 'pending'] as const)('initialize
   try {
     apply(ctx as never)
     await done.promise
-    expect(initializeDefaultModel).toHaveBeenCalledExactlyOnceWith()
+    if (outcome === 'password') expect(initializeDefaultModel).not.toHaveBeenCalled()
+    else expect(initializeDefaultModel).toHaveBeenCalledExactlyOnceWith()
     expect(observed).toEqual([
       { status: 'credential-stored', failed: false },
       { status: 'credential-stored', failed: false },
       { status: 'signed-out', failed: false },
     ])
-    if (outcome === 'accepted' || outcome === 'pending') expect(log).not.toHaveBeenCalled()
+    if (outcome === 'accepted' || outcome === 'pending' || outcome === 'password') expect(log).not.toHaveBeenCalled()
     else expect(log).toHaveBeenCalledWith('[deepseek-account] default model initialization failed', {
       reason: outcome === 'refused' ? 'refused' : 'disconnected',
     })
     expect(operations?.hooks.account.getSnapshot()).toMatchObject({ view: { status: 'signed-out' }, failed: false })
+    if (outcome === 'password') {
+      await operations!.start()
+      expect(await operations!.signInWithPassword!('test@example.com', 'synthetic-password')).toBe(signedIn)
+      expect(passwordSignIn).toHaveBeenCalledExactlyOnceWith('test@example.com', 'synthetic-password')
+      passwordSignIn.mockResolvedValueOnce({ ok: false, value: signedIn })
+      await expect(operations!.signInWithPassword!('test@example.com', 'wrong')).rejects.toThrow('account sign-in failed')
+    }
   } finally {
     initialization.resolve(undefined)
     await Promise.resolve()

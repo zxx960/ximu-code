@@ -11,6 +11,7 @@ export const WELCOME_IPC = {
   analyticsEnabled: 'dsh-welcome:analytics-enabled',
   skip: 'dsh-welcome:skip',
   start: 'dsh-welcome:start',
+  password: 'dsh-welcome:password',
   cancel: 'dsh-welcome:cancel',
   copyLink: 'dsh-welcome:copy-link',
   state: 'dsh-welcome:state',
@@ -35,6 +36,8 @@ export interface WelcomeOperations {
   takeNotice(): Promise<WelcomeNotice | undefined>
   /** @returns account state after starting a login attempt. */
   startSignIn(): Promise<AccountView>
+  /** @param email - account email. @param password - transient password. @returns safe login state; absent for browser-only hosts. */
+  signInWithPassword?(email: string, password: string): Promise<AccountView>
   /** @param id - attempt to cancel. @returns the settled state. */
   cancelSignIn(id: SignInAttemptId): Promise<AccountView>
   /** @param id - current waiting attempt whose authorization URL is copied to the system clipboard. */

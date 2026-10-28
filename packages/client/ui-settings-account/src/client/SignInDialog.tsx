@@ -2,17 +2,18 @@
 import { useEffect, useState } from 'react'
 import { Button, IconCloseOutlineRegular, IconLoadingOutlineRegular, Modal } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { AccountSnapshot } from './AccountSection.tsx'
-import type { SignInAttemptId } from '@deepseek-ai/dsh-deepseek-account/types'
+import type { AccountView, SignInAttemptId } from '@deepseek-ai/dsh-deepseek-account/types'
 import type { AccountKey } from './locales.ts'
 import { authorizeUrlWithTheme } from './authorize-url.ts'
 import css from './SignInDialog.module.css'
 
 /** @param props - safe account state, localized copy, and user actions. @returns login dialog. */
-export function SignInDialog({ account, colorScheme, start, cancel, close, useApiKey, t }: {
+export function SignInDialog({ account, colorScheme, start, signInWithPassword, cancel, close, useApiKey, t }: {
   account: AccountSnapshot
   /** Resolved scheme of the active application theme; the copied link carries it. */
   colorScheme: 'light' | 'dark'
   start: () => Promise<void>
+  signInWithPassword?: ((email: string, password: string) => Promise<AccountView>) | undefined
   cancel: (id: SignInAttemptId) => Promise<void>
   close: () => void
   useApiKey: () => void
@@ -60,6 +61,7 @@ export function SignInDialog({ account, colorScheme, start, cancel, close, useAp
     } catch { setCopyResult({ messageKey: 'copyFailed' }) }
   }
   const title = error ? t('failureTitle') : active ? t('browserTitle') : expired ? t('timeoutTitle') : t('loginTitle')
+  if (account.view?.loginMethod === 'password') return <PasswordSignInDialog submit={signInWithPassword} close={close} t={t} />
   return <Modal open headless title={title} onClose={dismiss} className={css.dialog as string}>
     <div className={css.content}>
       <div className={css.header}>
@@ -85,5 +87,46 @@ export function SignInDialog({ account, colorScheme, start, cancel, close, useAp
         {waiting ? <IconLoadingOutlineRegular className={css.spinner} /> : t(expired || error ? 'retry' : 'signIn')}
       </Button>
     </div>
+  </Modal>
+}
+
+function PasswordSignInDialog({ submit, close, t }: {
+  submit: ((email: string, password: string) => Promise<AccountView>) | undefined
+  close: () => void
+  t: (key: AccountKey) => string
+}) {
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [failure, setFailure] = useState<'invalidCredentials' | 'noResponse' | 'failed' | null>(null)
+  const signIn = async () => {
+    if (busy || submit === undefined) return
+    setBusy(true)
+    setFailure(null)
+    const secret = password
+    setPassword('')
+    try {
+      const state = await submit(email.trim(), secret)
+      if (state.attempt?.phase === 'succeeded') close()
+      else setFailure(state.attempt?.errorCode === 'invalid-credentials' ? 'invalidCredentials'
+        : state.attempt?.errorCode === 'no-response' ? 'noResponse' : 'failed')
+    } catch { setFailure('failed') }
+    finally { setBusy(false) }
+  }
+  return <Modal open headless title={t('passwordTitle')} onClose={() => { if (!busy) close() }} className={css.dialog as string}>
+    <form className={css.passwordForm} onSubmit={(event) => { event.preventDefault(); void signIn() }} aria-busy={busy}>
+      <h2 className={css.title}>{t('passwordTitle')}</h2>
+      <label>{t('email')}<input type="email" autoComplete="username" maxLength={320} required value={email} disabled={busy}
+        onChange={(event) => { setEmail(event.target.value); setFailure(null) }} /></label>
+      <label>{t('password')}<input type="password" autoComplete="current-password" maxLength={4096} required value={password} disabled={busy}
+        aria-describedby="account-password-error" onChange={(event) => { setPassword(event.target.value); setFailure(null) }} /></label>
+      <p id="account-password-error" className={css.formError} role="alert">{failure === null ? '' : t(failure)}</p>
+      <div className={css.formActions}>
+        <Button variant="outline" disabled={busy} onClick={close}>{t('cancel')}</Button>
+        <Button variant="primary" type="submit" disabled={busy || submit === undefined || email.trim() === '' || password === ''}>
+          {busy ? <IconLoadingOutlineRegular className={css.spinner} /> : t('signIn')}
+        </Button>
+      </div>
+    </form>
   </Modal>
 }

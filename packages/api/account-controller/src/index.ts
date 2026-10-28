@@ -67,6 +67,16 @@ export class AccountController extends TypertRemoteService {
     return this.ctx.deepseekAccount.startSignIn(client, callbackOrigin, loginSource)
   }
   /**
+   * Sign in through the configured password provider; the response never carries credentials.
+   * @param email - account email.
+   * @param password - transient password sent only to the Host account provider.
+   * @returns settled account state and safe failure classification.
+   */
+  @Remote
+  signInWithPassword(email: string, password: string): Promise<AccountView> {
+    return this.ctx.deepseekAccount.signInWithPassword(email, password)
+  }
+  /**
    * Cancel the named local attempt.
    * @param attemptId - attempt to cancel.
    * @returns settled cancellation or commit state.

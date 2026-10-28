@@ -62,6 +62,8 @@ AccountDetails.balance projects recharge wallets in value and promotional wallet
 
 Bonus notification queries return an AccountBonusBatch with the current Platform account id and eligible orders in server order. AccountBonusNotification retains the server message and expiry without projecting credentials. Acknowledgment carries the expected account id and order id; the Host refuses it after an account change. Both notification operations use the initiating UI language through x-client-locale, without a language query parameter.
 
+Password account providers expose `AccountView.loginMethod: password` and accept transient email/password input through `signInWithPassword`. The [Ximu provider](../../packages/credentials/account-ximu/README.md) returns recharge balances without `AccountWallet.currency` because its management API supplies no currency; UI consumers omit the currency symbol. Management tokens remain Host-only and do not authenticate inference or embedded Platform pages.
+
 <!-- BEGIN GENERATED cordis-surface (gen-cordis-catalog.ts) — do not edit between markers -->
 
 <a id="cordis-surface"></a>
@@ -314,6 +316,14 @@ abstract ackBonusNotified(accountId: AccountUserId, orderId: AccountBonusOrderId
  * @returns the initial snapshot without waiting for browser approval.
  */
 abstract startSignIn(client: AccountClientMetadata, callbackOrigin: string, loginSource: 'web' | 'desktop'): Promise<AccountView>
+
+/**
+ * Submit credentials to a password account provider; browser-only providers reject without storing them.
+ * @param _email - account email; never persisted by this operation.
+ * @param _password - password used only for this request, never persisted or logged.
+ * @returns settled login state, including a display-safe failure code.
+ */
+signInWithPassword(_email: string, _password: string): Promise<AccountView>
 
 /**
  * Cancel only the named attempt; committing attempts settle before returning.

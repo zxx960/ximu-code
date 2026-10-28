@@ -9,6 +9,29 @@ Both language versions of this file are GENERATED from source (`scripts/gen-conf
 
 Each package entry labels its data with three identifiers: `inject` lists the service keys the plugin injects, so its `cordis.yml` tree must also load providers for those services; `refs` lists the referenced types that are not pasted here; `source` links the file that declares the config. Scope is the harness tier (`packages/`); the vendored cordis plugins a config tree may also load (the console logger, …) are pinned upstream source ([vendoring policy](../vendor/README.md)) and not catalogued here.
 
+<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-account-ximu -->
+<a id="deepseek-aidsh-account-ximu"></a>
+
+## `@deepseek-ai/dsh-account-ximu`
+
+- `inject`: `credentials`
+- `source`: [`packages/credentials/account-ximu/src/index.ts:15`](../packages/credentials/account-ximu/src/index.ts)
+
+```ts config-catalog
+/** Ximu management API and bounded request settings. */
+export interface Config {
+  /** API root containing auth/login and auth/me. */
+  baseURL?: string
+  /** Deadline for a complete management request. */
+  requestTimeoutMs?: number
+  /** Maximum bytes in one management response. */
+  maxResponseBytes?: number
+  /** Permit loopback HTTP for local API fixtures only. */
+  allowLoopbackHttp?: boolean
+}
+```
+<!-- END GENERATED config-catalog:@deepseek-ai/dsh-account-ximu -->
+
 <!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-acp -->
 <a id="deepseek-aidsh-acp"></a>
 

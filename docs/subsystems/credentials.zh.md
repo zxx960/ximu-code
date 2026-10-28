@@ -62,6 +62,8 @@ AccountDetails.balance 将充值钱包投影为 value、赠送钱包投影为 bo
 
 赠金通知查询返回 AccountBonusBatch，包含当前 Platform 账号 id 和按服务端顺序排列的可通知订单。AccountBonusNotification 保留服务端消息与到期时间，不投影凭证。确认请求携带预期账号 id 和订单 id；账号变化后 Host 拒绝该请求。两项通知操作都通过 x-client-locale 传递发起界面的语言，不使用语言查询参数。
 
+密码账号提供方通过 `AccountView.loginMethod: password` 标识登录方式，并通过 `signInWithPassword` 接收临时邮箱密码输入。[西牧提供方](../../packages/credentials/account-ximu/README.zh.md)的管理接口未提供币种，因此返回的充值余额不包含 `AccountWallet.currency`，界面不显示货币符号。管理令牌仅保留在 Host，不用于推理或内嵌 Platform 页面鉴权。
+
 <!-- BEGIN GENERATED cordis-surface (gen-cordis-catalog.ts) — do not edit between markers -->
 
 <a id="cordis-surface"></a>
@@ -314,6 +316,14 @@ abstract ackBonusNotified(accountId: AccountUserId, orderId: AccountBonusOrderId
  * @returns the initial snapshot without waiting for browser approval.
  */
 abstract startSignIn(client: AccountClientMetadata, callbackOrigin: string, loginSource: 'web' | 'desktop'): Promise<AccountView>
+
+/**
+ * Submit credentials to a password account provider; browser-only providers reject without storing them.
+ * @param _email - account email; never persisted by this operation.
+ * @param _password - password used only for this request, never persisted or logged.
+ * @returns settled login state, including a display-safe failure code.
+ */
+signInWithPassword(_email: string, _password: string): Promise<AccountView>
 
 /**
  * Cancel only the named attempt; committing attempts settle before returning.

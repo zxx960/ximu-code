@@ -56,6 +56,8 @@ flowchart LR
   cfg --> plugin_dsh_base_authorization
   plugin_dsh_base_deepseek_account["deepseek-account<br/>@deepseek-ai/dsh-deepseek-account-platform"]
   cfg --> plugin_dsh_base_deepseek_account
+  plugin_dsh_base_ximu_account["ximu-account<br/>@deepseek-ai/dsh-account-ximu"]
+  cfg --> plugin_dsh_base_ximu_account
   plugin_dsh_base_credentials["credentials<br/>@deepseek-ai/dsh-credentials-local"]
   cfg --> plugin_dsh_base_credentials
   plugin_dsh_base_llm_pi_ai["llm-pi-ai<br/>@deepseek-ai/dsh-llm-pi-ai"]
@@ -230,6 +232,7 @@ flowchart LR
 | `settings` | `@deepseek-ai/dsh-settings` |
 | `authorization` | `@deepseek-ai/dsh-authorization` |
 | `deepseek-account` | `@deepseek-ai/dsh-deepseek-account-platform` |
+| `ximu-account` | `@deepseek-ai/dsh-account-ximu` |
 | `credentials` | `@deepseek-ai/dsh-credentials-local` |
 | `llm-pi-ai` | `@deepseek-ai/dsh-llm-pi-ai` |
 | `session-persistence-jsonl` | `@deepseek-ai/dsh-session-persistence-jsonl` |

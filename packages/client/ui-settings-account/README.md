@@ -13,7 +13,7 @@ Server-expired account credentials clear the displayed account details and emit 
 
 ## Summary
 
-The Account settings section displays DeepSeek login state and offers browser sign-in and cancellation; the sidebar account menu provides Platform sign-out. Desktop users also receive a resumable introduction to account credit and presentation preferences.
+Account settings display account login state and recharge balances. Desktop uses email/password sign-in through the [Ximu account provider](../../credentials/account-ximu/README.md); browser-authorized Platform accounts retain their sign-in flow. The sidebar menu provides sign-out.
 
 The sign-in dialog offers network troubleshooting only for `no-response` failures. HTTP, business, response-validation, storage, and account-stream failures retain the generic retry message.
 
@@ -81,7 +81,7 @@ Account login uses a dismissible dialog before the model onboarding credential e
 
 A terminal account-state stream failure appears in the sign-in dialog or Account settings. Plugin unload suppresses late failure reports.
 
-The balance card shows recharge funds and bonus credit in separate rows. While signed in, the bonus row appears during loading, after a failed wallet read, and when a wallet holds positive bonus credit; a successful read without positive bonus credit omits the row. A failed wallet read shows the existing unavailable copy as a link to Platform — the same destination and behavior as the Usage action, so the embedded page opens on Desktop and a new tab elsewhere — while the loading state stays plain text. Currencies retain their own amounts, and a notice date is rendered only inside the server’s own message.
+The balance card shows recharge funds without a bonus balance row. An unspecified currency displays no symbol. Password accounts offer Refresh balance and omit Platform usage, top-up, and bonus-credit onboarding; failed reads remain visible and can be retried.
 
 
 A successful login selects the first available `deepseek-account` model as the default when no other provider has a configured API key, even if a previous default was saved. Configured keys preserve the existing default even when their provider has no available models. Session-specific selections remain unchanged.

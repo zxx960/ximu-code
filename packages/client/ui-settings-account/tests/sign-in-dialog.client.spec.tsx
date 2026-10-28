@@ -7,6 +7,26 @@ import { SignInDialog } from '../src/client/SignInDialog.tsx'
 import { en, zh } from '../src/client/locales.ts'
 
 afterEach(cleanup)
+
+it.each([en, zh])('submits email and password once and clears the password before the response', async (copy) => {
+  const props = dialogProps(null, copy)
+  const response = Promise.withResolvers<AccountView>()
+  const signInWithPassword = vi.fn(() => response.promise)
+  const account = { ...props.account, view: { ...props.account.view, loginMethod: 'password' as const } }
+  render(<SignInDialog {...props} account={account} signInWithPassword={signInWithPassword} />)
+  await expect(`${screen.getByRole('dialog').textContent}\n`)
+    .toMatchFileSnapshot(`./expected/password-login-${copy === en ? 'en' : 'zh'}.txt`)
+  fireEvent.change(screen.getByLabelText(copy.email), { target: { value: 'test@example.com' } })
+  const password = screen.getByLabelText<HTMLInputElement>(copy.password)
+  fireEvent.change(password, { target: { value: 'synthetic-password' } })
+  fireEvent.submit(password.closest('form')!)
+  expect(signInWithPassword).toHaveBeenCalledExactlyOnceWith('test@example.com', 'synthetic-password')
+  expect(password.value).toBe('')
+  expect(screen.getByRole('button', { name: copy.cancel }).hasAttribute('disabled')).toBe(true)
+  await act(async () => { response.resolve({ ...account.view, attempt: { id, phase: 'failed', errorCode: 'invalid-credentials' } }) })
+  expect(screen.getByRole('alert').textContent).toBe(copy.invalidCredentials)
+  expect(props.close).not.toHaveBeenCalled()
+})
 const id = 'login-attempt' as SignInAttemptId
 function dialogProps(attempt: AccountView['attempt'], copy: typeof en | typeof zh = en, colorScheme: 'light' | 'dark' = 'dark') {
   const start = vi.fn(async () => {})

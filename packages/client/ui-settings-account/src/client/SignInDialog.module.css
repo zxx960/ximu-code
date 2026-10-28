@@ -1,4 +1,9 @@
 .dialog { user-select: none; box-sizing: border-box; border: 0.5px solid var(--dsw-alias-border-inverted); }
+.passwordForm { display: flex; flex-direction: column; gap: 16px; padding: 24px; width: 100%; box-sizing: border-box; }
+.passwordForm label { display: flex; flex-direction: column; gap: 8px; font-size: 14px; color: var(--dsw-alias-label-primary); }
+.passwordForm input { box-sizing: border-box; width: 100%; min-width: 0; padding: 8px 12px; border: 1px solid var(--dsw-alias-border-l2); border-radius: var(--dsw-radius-md); background: var(--dsw-alias-settings-card-fill); color: var(--dsw-alias-label-primary); font: inherit; user-select: text; }
+.formError { min-height: 22px; margin: 0; font-size: 13px; color: var(--dsw-alias-label-primary); }
+.formActions { display: flex; justify-content: flex-end; gap: 8px; }
 .content { display: flex; flex-direction: column; width: 100%; }
 .header { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 22px 24px 12px; }
 .title { margin: 0; font-size: 16px; line-height: 24px; font-weight: 500; color: var(--dsw-alias-label-primary); }

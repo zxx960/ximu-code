@@ -3,6 +3,11 @@ import { onboardingZh, onboardingEn, onboardingJa, onboardingEs, onboardingFr, o
 
 /** English account dictionary. */
 export const en = {
+  refreshBalance: 'Refresh balance',
+  passwordTitle: 'Sign in to Ximu',
+  email: 'Email',
+  password: 'Password',
+  invalidCredentials: 'Incorrect email or password. Try again.',
   modelSignInRequired: 'Model unavailable. Please sign in and try again.',
   sessionExpired: 'You have signed out of your account, please log in again.',
   ...onboardingEn,
@@ -39,6 +44,11 @@ export const en = {
 export type AccountKey = keyof typeof en
 /** Chinese account settings copy. */
 export const zh: Record<AccountKey, string> = {
+  refreshBalance: '刷新余额',
+  passwordTitle: '登录西牧账号',
+  email: '邮箱',
+  password: '密码',
+  invalidCredentials: '邮箱或密码错误，请重试',
   modelSignInRequired: '当前模型暂不可用，请登录后再试',
   sessionExpired: '登录信息已失效，请重新登录',
   ...onboardingZh,
@@ -74,6 +84,11 @@ export const zh: Record<AccountKey, string> = {
 
 /** Japanese copy, checked against the English keys. */
 export const ja = {
+  refreshBalance: '残高を更新',
+  passwordTitle: 'Ximu にログイン',
+  email: 'メールアドレス',
+  password: 'パスワード',
+  invalidCredentials: 'メールアドレスまたはパスワードが正しくありません。',
   ...onboardingJa,
   'modelSignInRequired': 'モデルを利用できません。ログインしてから再試行してください。',
   'sessionExpired': 'アカウントからログアウトしました。もう一度ログインしてください。',
@@ -134,6 +149,11 @@ export const ja = {
 
 /** Spanish dictionary, checked against the English keys. */
 export const es = {
+  refreshBalance: 'Actualizar saldo',
+  passwordTitle: 'Iniciar sesión en Ximu',
+  email: 'Correo electrónico',
+  password: 'Contraseña',
+  invalidCredentials: 'Correo o contraseña incorrectos. Inténtalo de nuevo.',
   modelSignInRequired: 'Modelo no disponible. Por favor inicia sesión y vuelve a intentarlo.',
   sessionExpired: 'Has cerrado sesión en tu cuenta, inicia sesión nuevamente.',
   ...onboardingEs,
@@ -169,6 +189,11 @@ export const es = {
 
 /** French dictionary, checked against the English keys. */
 export const fr = {
+  refreshBalance: 'Actualiser le solde',
+  passwordTitle: 'Se connecter à Ximu',
+  email: 'Adresse e-mail',
+  password: 'Mot de passe',
+  invalidCredentials: 'Adresse e-mail ou mot de passe incorrect. Réessayez.',
   modelSignInRequired: 'Modèle indisponible. Veuillez vous connecter et réessayer.',
   sessionExpired: 'Vous vous êtes déconnecté de votre compte, veuillez vous reconnecter.',
   ...onboardingFr,
@@ -204,6 +229,11 @@ export const fr = {
 
 /** German dictionary, checked against the English keys. */
 export const de = {
+  refreshBalance: 'Guthaben aktualisieren',
+  passwordTitle: 'Bei Ximu anmelden',
+  email: 'E-Mail',
+  password: 'Passwort',
+  invalidCredentials: 'E-Mail oder Passwort falsch. Bitte erneut versuchen.',
   modelSignInRequired: 'Modell nicht verfügbar. Bitte melden Sie sich an und versuchen Sie es erneut.',
   sessionExpired: 'Sie haben sich von Ihrem Konto abgemeldet. Bitte melden Sie sich erneut an.',
   ...onboardingDe,
@@ -239,6 +269,11 @@ export const de = {
 
 /** Russian dictionary, checked against the English keys. */
 export const ru = {
+  refreshBalance: 'Обновить баланс',
+  passwordTitle: 'Войти в Ximu',
+  email: 'Электронная почта',
+  password: 'Пароль',
+  invalidCredentials: 'Неверная почта или пароль. Попробуйте снова.',
   modelSignInRequired: 'Модель недоступна. Пожалуйста, войдите в систему и повторите попытку.',
   sessionExpired: 'Вы вышли из своей учетной записи, пожалуйста, войдите снова.',
   ...onboardingRu,
@@ -274,6 +309,11 @@ export const ru = {
 
 /** Portuguese dictionary, checked against the English keys. */
 export const pt = {
+  refreshBalance: 'Atualizar saldo',
+  passwordTitle: 'Entrar no Ximu',
+  email: 'E-mail',
+  password: 'Senha',
+  invalidCredentials: 'E-mail ou senha incorretos. Tente novamente.',
   modelSignInRequired: 'Modelo indisponível. Faça login e tente novamente.',
   sessionExpired: 'Você saiu da sua conta, faça login novamente.',
   ...onboardingPt,

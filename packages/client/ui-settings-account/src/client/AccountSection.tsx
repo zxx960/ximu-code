@@ -1,5 +1,4 @@
 /** Account settings renders safe Host state and explicit login actions. */
-import { Big } from 'big.js'
 import { useEffect, useRef, useState, type MouseEvent } from 'react'
 import { Button, IconRightUpOutlineRegular } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { AccountDetails, AccountView, SignInAttemptId } from '@deepseek-ai/dsh-deepseek-account/types'
@@ -79,6 +78,12 @@ export interface AccountSectionInjected {
   bonusNoticeDismissed: (orderId: BonusNotice['orderId']) => void
   /** @returns after the login attempt is created. */
   start: () => Promise<void>
+  /** Submit transient credentials.
+   * @param email - account email.
+   * @param password - transient password.
+   * @returns safe settled login state.
+   */
+  signInWithPassword?: (email: string, password: string) => Promise<AccountView>
   /** @param id - attempt to cancel. @returns after cancellation or an already-admitted commit. */
   cancel: (id: SignInAttemptId) => Promise<void>
   /** @returns whether a running task currently uses the account token. */
@@ -90,7 +95,9 @@ export interface AccountSectionInjected {
 export type AccountSectionProps =
   PropsRuntime<'settings.section'> & PropsLocale<'settings.account'> & InjectFace<AccountSectionInjected>
 /** @param props - localized actions, account subscription, and the shared Platform page channel. @returns account settings UI. */
-export function AccountSection({ t, useAccount, useTheme, start, cancel, openPlatformPage, avatarFailed }: AccountSectionProps) {
+export function AccountSection({
+  t, useAccount, useTheme, start, cancel, openPlatformPage, avatarFailed, refreshAccount,
+}: AccountSectionProps) {
   const { view: state, details, avatar, failed: streamFailed } = useAccount(value => value)
   const colorScheme = useTheme(snapshot => snapshot.active.colorScheme)
   // The shared host owns the native view; this page holds only its own request,
@@ -100,9 +107,7 @@ export function AccountSection({ t, useAccount, useTheme, start, cancel, openPla
   const [busy, setBusy] = useState(false)
   const profile = details?.profile?.status === 'ready' ? details.profile.value : undefined
   const wallets = details?.balance?.status === 'ready' ? details.balance.value : undefined
-  const bonusWallets = details?.balance?.status === 'ready'
-    ? details.balance.bonusWallets.filter(wallet => new Big(wallet.balance).gt(0)) : []
-  const showBonusRow = details?.balance?.status !== 'ready' || bonusWallets.length > 0
+  const passwordAccount = state?.loginMethod === 'password'
   const attempt = state?.attempt
   const active = attempt !== null && attempt !== undefined
     && ['initializing', 'waiting-browser', 'exchanging', 'committing'].includes(attempt.phase)
@@ -145,14 +150,14 @@ export function AccountSection({ t, useAccount, useTheme, start, cancel, openPla
   const status = failed || streamFailed || attempt?.phase === 'failed' ? t('failed')
     : attempt?.phase === 'expired' ? t('expired')
       : active ? t(attempt.phase === 'initializing' ? 'initializing' : attempt.phase === 'waiting-browser' ? 'waiting' : 'completing')
-        : signedIn ? profile?.contact ?? t(details?.profile === undefined ? 'loading' : 'profileUnavailable') : t('signInDescription')
+        : signedIn ? profile?.contact ?? t(details?.profile === undefined ? 'loading' : 'profileUnavailable') : t(passwordAccount ? 'passwordTitle' : 'signInDescription')
   if (!signedIn && !active) return (
     <section className={css.signedOut} aria-label={t('nav')}>
       <div className={css.signedOutContent}>
         <div className={css.signedOutCopy}>
-          <span className={css.signedOutTitle}>{t('settingsSignedOutTitle')}</span>
+          <span className={css.signedOutTitle}>{t(passwordAccount ? 'signedOut' : 'settingsSignedOutTitle')}</span>
           <span className={css.signedOutDescription} role="status">
-            {failed || streamFailed ? t('failed') : t('settingsSignedOutDescription')}
+            {failed || streamFailed ? t('failed') : t(passwordAccount ? 'passwordTitle' : 'settingsSignedOutDescription')}
           </span>
         </div>
         <Button variant="primary" className={css.signInButton} disabled={busy || state === undefined}
@@ -172,7 +177,7 @@ export function AccountSection({ t, useAccount, useTheme, start, cancel, openPla
             <span className={css.status} role="status">{status}</span>
           </div>
         </div>
-        {signedIn && <a className={css.accountInfo} href={new URL('/', state.links.usageUrl).href} target="_blank" rel="noopener noreferrer">
+        {signedIn && !passwordAccount && <a className={css.accountInfo} href={new URL('/', state.links.usageUrl).href} target="_blank" rel="noopener noreferrer">
           {t('accountInfo')}<IconRightUpOutlineRegular size={12} />
         </a>}
       </div>
@@ -188,38 +193,26 @@ export function AccountSection({ t, useAccount, useTheme, start, cancel, openPla
         <div className={css.row}>
           <span>{t('balance')}</span>
           {signedIn && wallets !== undefined && wallets.length > 0
-            ? <span className={css.amount}>{wallets.map(wallet => <span key={wallet.currency}>
-              {formatBalance(wallet.balance, wallet.currency === 'CNY' ? '¥' : '$')}
+            ? <span className={css.amount}>{wallets.map(wallet => <span key={wallet.currency ?? 'balance'}>
+              {formatBalance(wallet.balance, wallet.currency === 'CNY' ? '¥' : wallet.currency === 'USD' ? '$' : '')}
             </span>)}</span>
             : !signedIn || details?.balance === undefined
               ? <span className={css.unavailable}>{t(!signedIn ? 'balanceSignedOut' : 'loading')}</span>
-              : platformLink(t('balanceUnavailable'), css.unavailableLink)}
+              : passwordAccount ? <span role="status">{t('failed')}</span> : platformLink(t('balanceUnavailable'), css.unavailableLink)}
         </div>
-        {signedIn && showBonusRow && <>
+        {!passwordAccount && <>
           <div className={css.divider} />
           <div className={css.row}>
-            <span>{t('bonusBalance')}</span>
-            <span className={css.bonusValue}>
-              {bonusWallets.length > 0
-                ? <span className={css.amount}>{bonusWallets.map(wallet => <span key={wallet.currency}>
-                  {formatBalance(wallet.balance, wallet.currency === 'CNY' ? '¥' : '$')}
-                </span>)}</span>
-                : details?.balance === undefined
-                  ? <span className={css.unavailable}>{t('loading')}</span>
-                  : platformLink(t('balanceUnavailable'), css.unavailableLink)}
-            </span>
+            <span className={css.secondary}>{t('more')}</span>
+            <div className={css.links}>
+              {platformLink(t('usage'), css.linkButton)}
+              <a className={`${css.linkButton} ${css.primary}`} href={state?.links.topUpUrl} aria-disabled={state === undefined}
+                target="_blank" rel="noreferrer"
+                onClick={(event) => { if (openPlatformPage !== undefined && signedIn) { event.preventDefault(); showPage(openPlatformPage, 'top-up') } }}>{t('topUp')}</a>
+            </div>
           </div>
         </>}
-        <div className={css.divider} />
-        <div className={css.row}>
-          <span className={css.secondary}>{t('more')}</span>
-          <div className={css.links}>
-            {platformLink(t('usage'), css.linkButton)}
-            <a className={`${css.linkButton} ${css.primary}`} href={state?.links.topUpUrl} aria-disabled={state === undefined}
-              target="_blank" rel="noreferrer"
-              onClick={(event) => { if (openPlatformPage !== undefined && signedIn) { event.preventDefault(); showPage(openPlatformPage, 'top-up') } }}>{t('topUp')}</a>
-          </div>
-        </div>
+        {passwordAccount && <Button variant="outline" disabled={busy} onClick={() => { void run(refreshAccount) }}>{t('refreshBalance')}</Button>}
       </div>
     </section>
   )

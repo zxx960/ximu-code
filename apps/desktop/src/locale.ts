@@ -1,6 +1,10 @@
 /** Typed shell copy for every shipped language owned by the Electron shell. */
 
 export const en = {
+  welcomePasswordTitle: 'Sign in to Ximu',
+  welcomeEmail: 'Email',
+  welcomePassword: 'Password',
+  welcomeInvalidCredentials: 'Incorrect email or password. Try again.',
   cliCommandMenu: 'Manage dsh Command…',
   cliCommandTitle: 'Manage dsh Command',
   cliCommandLocation: 'Desktop command: {path}',
@@ -180,6 +184,10 @@ export const en = {
 export type DesktopMessages = { readonly [Key in keyof typeof en]: string }
 
 export const zh = {
+  welcomePasswordTitle: '登录西牧账号',
+  welcomeEmail: '邮箱',
+  welcomePassword: '密码',
+  welcomeInvalidCredentials: '邮箱或密码错误，请重试',
   cliCommandMenu: '管理 dsh 命令…',
   cliCommandTitle: '管理 dsh 命令',
   cliCommandLocation: 'Desktop 命令：{path}',
@@ -357,6 +365,10 @@ export const zh = {
 
 /** Japanese copy, checked against the English keys. */
 export const ja = {
+  welcomePasswordTitle: 'Ximu にログイン',
+  welcomeEmail: 'メールアドレス',
+  welcomePassword: 'パスワード',
+  welcomeInvalidCredentials: 'メールアドレスまたはパスワードが正しくありません。',
   cliCommandMenu: 'dsh コマンドを管理…',
   cliCommandTitle: 'dsh コマンドを管理',
   cliCommandLocation: 'デスクトップコマンド: {path}',
@@ -534,6 +546,10 @@ export const ja = {
 
 /** Spanish dictionary, checked against the English keys. */
 export const es = {
+  welcomePasswordTitle: 'Iniciar sesión en Ximu',
+  welcomeEmail: 'Correo electrónico',
+  welcomePassword: 'Contraseña',
+  welcomeInvalidCredentials: 'Correo o contraseña incorrectos. Inténtalo de nuevo.',
   cliCommandMenu: 'Administrar el comando dsh…',
   cliCommandTitle: 'Administrar el comando dsh',
   cliCommandLocation: 'Comando de escritorio: {path}',
@@ -711,6 +727,10 @@ export const es = {
 
 /** French dictionary, checked against the English keys. */
 export const fr = {
+  welcomePasswordTitle: 'Se connecter à Ximu',
+  welcomeEmail: 'Adresse e-mail',
+  welcomePassword: 'Mot de passe',
+  welcomeInvalidCredentials: 'Adresse e-mail ou mot de passe incorrect. Réessayez.',
   cliCommandMenu: 'Gérer la commande dsh…',
   cliCommandTitle: 'Gérer la commande dsh',
   cliCommandLocation: 'Commande de bureau : {path}',
@@ -888,6 +908,10 @@ export const fr = {
 
 /** German dictionary, checked against the English keys. */
 export const de = {
+  welcomePasswordTitle: 'Bei Ximu anmelden',
+  welcomeEmail: 'E-Mail',
+  welcomePassword: 'Passwort',
+  welcomeInvalidCredentials: 'E-Mail oder Passwort falsch. Bitte erneut versuchen.',
   cliCommandMenu: 'dsh-Befehl verwalten…',
   cliCommandTitle: 'dsh-Befehl verwalten',
   cliCommandLocation: 'Desktop-Befehl: {path}',
@@ -1065,6 +1089,10 @@ export const de = {
 
 /** Russian dictionary, checked against the English keys. */
 export const ru = {
+  welcomePasswordTitle: 'Войти в Ximu',
+  welcomeEmail: 'Электронная почта',
+  welcomePassword: 'Пароль',
+  welcomeInvalidCredentials: 'Неверная почта или пароль. Попробуйте снова.',
   cliCommandMenu: 'Управление командой dsh…',
   cliCommandTitle: 'Управление командой dsh',
   cliCommandLocation: 'Команда Desktop: {path}',
@@ -1242,6 +1270,10 @@ export const ru = {
 
 /** Portuguese dictionary, checked against the English keys. */
 export const pt = {
+  welcomePasswordTitle: 'Entrar no Ximu',
+  welcomeEmail: 'E-mail',
+  welcomePassword: 'Senha',
+  welcomeInvalidCredentials: 'E-mail ou senha incorretos. Tente novamente.',
   cliCommandMenu: 'Gerenciar comando dsh…',
   cliCommandTitle: 'Gerenciar comando dsh',
   cliCommandLocation: 'Comando da área de trabalho: {path}',

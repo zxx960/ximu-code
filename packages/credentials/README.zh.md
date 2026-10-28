@@ -29,6 +29,7 @@ kind: "package-group"
 | [`credentials/`](credentials/README.zh.md) | 在运行时存储、查询与移除机密，而配置只写名字 | `ctx.credentials` |
 | [`credentials-local/`](credentials-local/README.zh.md) | 默认本机存储：一个私有 YAML 文件，优先于环境后备来源 | 注册 `ctx.credentials` |
 | [`authorization/`](authorization/README.zh.md) | 由插件拥有、通过询问人来取得凭据的 flow | `ctx.authorization` |
+| [`account-ximu/`](account-ximu/README.zh.md) | 桌面邮箱密码登录和充值余额 | 注册 `ctx.deepseekAccount` |
 
 -----
 

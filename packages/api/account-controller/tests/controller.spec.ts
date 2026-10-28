@@ -21,6 +21,7 @@ function fixture() {
     getUnnotifiedBonuses: vi.fn<DeepSeekAccount['getUnnotifiedBonuses']>().mockResolvedValue(null),
     ackBonusNotified: vi.fn<DeepSeekAccount['ackBonusNotified']>().mockResolvedValue(false),
     startSignIn: vi.fn<DeepSeekAccount['startSignIn']>().mockResolvedValue(state),
+    signInWithPassword: vi.fn<DeepSeekAccount['signInWithPassword']>().mockResolvedValue(state),
     cancelSignIn: vi.fn<DeepSeekAccount['cancelSignIn']>().mockResolvedValue(state),
     signOut: vi.fn<DeepSeekAccount['signOut']>().mockResolvedValue(state),
     watch: vi.fn<DeepSeekAccount['watch']>(),
@@ -37,6 +38,8 @@ it('delegates account operations without coupling profile and balance queries', 
   expect(await controller.getBalance(client)).toBeNull()
   expect(await controller.startSignIn(client, 'http://127.0.0.1:8080', 'desktop')).toBe(state)
   expect(provider.startSignIn).toHaveBeenCalledExactlyOnceWith(client, 'http://127.0.0.1:8080', 'desktop')
+  expect(await controller.signInWithPassword('test@example.com', 'synthetic-password')).toBe(state)
+  expect(provider.signInWithPassword).toHaveBeenCalledExactlyOnceWith('test@example.com', 'synthetic-password')
   const id = 'attempt' as SignInAttemptId
   expect(await controller.cancelSignIn(id)).toBe(state)
   expect(provider.cancelSignIn).toHaveBeenCalledExactlyOnceWith(id)

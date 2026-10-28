@@ -18,6 +18,19 @@ import type { AccountAvatarSnapshot } from '../src/client/account-avatar.ts'
 
 afterEach(() => { cleanup(); vi.unstubAllGlobals() })
 
+it.each([en, zh])('shows only the server recharge balance without assuming a currency', async (copy) => {
+  mount({ status: 'credential-stored', attempt: null, loginMethod: 'password' }, copy, {
+    profile: { status: 'ready', value: { id: null, name: 'test@example.com', contact: 'test@example.com' } },
+    balance: { status: 'ready', value: [{ balance: '12.34' }], bonusWallets: [] },
+  })
+  expect(screen.getByText(copy.balance).parentElement!.textContent).toBe(`${copy.balance}12.34`)
+  expect(screen.queryByText(copy.bonusBalance)).toBeNull()
+  expect(screen.queryByRole('link', { name: copy.topUp })).toBeNull()
+  expect(screen.getByRole('button', { name: copy.refreshBalance })).toBeTruthy()
+  await expect(`${screen.getByRole('region').textContent}\n`)
+    .toMatchFileSnapshot(`./expected/password-balance-${copy === en ? 'en' : 'zh'}.txt`)
+})
+
 /** One resolved theme snapshot per scheme; the slot's theme hook serves these in the application. */
 const themeOf = (colorScheme: 'light' | 'dark'): ThemeSnapshot => ({
   preference: colorScheme, fontSizes: { text: 14, code: 11, terminal: 13 }, fontFamilies: { text: '', code: '', terminal: '' },
@@ -104,7 +117,7 @@ async function accountMenu(operations: AccountSectionInjected, snapshot: () => A
 it.each([en, zh])('renders account cards without inventing profile or balance data', async (copy) => {
   mount({ status: 'credential-stored', attempt: null }, copy)
   expect(screen.getByText(copy.signedIn)).toBeTruthy()
-  expect(screen.getAllByText(copy.loading)).toHaveLength(3)
+  expect(screen.getAllByText(copy.loading)).toHaveLength(2)
   expect(screen.getByRole('link', { name: copy.usage }).getAttribute('href')).toBe('http://localhost:8081/usage')
   expect(screen.getByRole('link', { name: copy.topUp }).getAttribute('href')).toBe('http://localhost:8081/top_up')
   expect(screen.queryByRole('button', { name: copy.signOut })).toBeNull()
@@ -385,7 +398,7 @@ it('shows the profile while the balance is still loading', async () => {
   })
   expect(screen.getByText('Ready User')).toBeTruthy()
   // Both the recharge and the bonus row report their own pending read.
-  expect(screen.getAllByText(en.loading)).toHaveLength(2)
+  expect(screen.getAllByText(en.loading)).toHaveLength(1)
   expect(screen.queryByText(en.balanceUnavailable)).toBeNull()
   await expect(`${screen.getByRole('region').textContent}\n`).toMatchFileSnapshot('./expected/profile-before-balance.txt')
 })
@@ -462,14 +475,14 @@ it.each(['loading', 'failed'] as const)('shows fallback until the shared avatar 
   expect(view.container.querySelector('img')).toBeNull()
 })
 
-it.each([en, zh])('renders positive bonus wallets separately from recharge balances', async (copy) => {
+it.each([en, zh])('shows recharge balances without a bonus row', async (copy) => {
   mount({ status: 'credential-stored', attempt: null }, copy, {
     balance: { status: 'ready', value: [{ currency: 'CNY', balance: '209.00' }, { currency: 'USD', balance: '20.07' }],
       bonusWallets: [{ currency: 'CNY', balance: '5.00' }, { currency: 'USD', balance: '0.000001' }] },
   })
   expect(screen.getByText(copy.balance).parentElement!.textContent).toBe(`${copy.balance}¥209.00$20.07`)
-  expect(screen.getByText(copy.bonusBalance).parentElement!.textContent).toBe(`${copy.bonusBalance}¥5.00<$0.01`)
-  expect(screen.getByRole('region').querySelectorAll(`.${css.divider}`)).toHaveLength(2)
+  expect(screen.queryByText(copy.bonusBalance)).toBeNull()
+  expect(screen.getByRole('region').querySelectorAll(`.${css.divider}`)).toHaveLength(1)
   await expect(`${screen.getByRole('region').textContent}\n`)
     .toMatchFileSnapshot(`./expected/bonus-${copy === en ? 'en' : 'zh'}.txt`)
 })
@@ -558,7 +571,7 @@ it('shows unavailable details and keeps external Platform links usable in a brow
   expect(screen.getByText(en.profileUnavailable)).toBeTruthy()
   // The failed read keeps its copy in both balance rows, now as links into Platform.
   const unavailable = screen.getAllByRole('link', { name: en.balanceUnavailable })
-  expect(unavailable).toHaveLength(2)
+  expect(unavailable).toHaveLength(1)
   for (const link of unavailable) expect(link.getAttribute('href')).toBe('http://localhost:8081/usage')
   for (const name of [en.usage, en.topUp, en.balanceUnavailable]) {
     const event = new MouseEvent('click', { bubbles: true, cancelable: true })

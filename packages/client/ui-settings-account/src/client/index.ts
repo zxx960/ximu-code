@@ -157,7 +157,7 @@ export function apply(ctx: Context): void {
         frame.accept()
         if (frame.value.status === 'credential-stored') notices.begin()
         else notices.end()
-        if (initialize) void (async () => {
+        if (initialize && frame.value.loginMethod !== 'password') void (async () => {
           try {
             const initialized = await ctx.remote.session.initializeDefaultModel()
             if (!initialized.ok) console.error('[deepseek-account] default model initialization failed', { reason: 'refused' })
@@ -245,6 +245,7 @@ export function apply(ctx: Context): void {
     },
     async start() {
       publish({ ...snapshot, loginVisible: true, loginFailed: false })
+      if (snapshot.view?.loginMethod === 'password') return
       const transport = (globalThis as typeof globalThis & {
         __DSH_TRANSPORT__?: { streamBaseUrl?: string }
       }).__DSH_TRANSPORT__
@@ -262,6 +263,12 @@ export function apply(ctx: Context): void {
         publish({ ...snapshot, loginFailed: true })
         throw error
       }
+    },
+    async signInWithPassword(email, password) {
+      const result = await ctx.remote.account.signInWithPassword(email, password)
+      if (!result.ok) throw new Error('account sign-in failed')
+      publish({ ...snapshot, view: result.value })
+      return result.value
     },
     async cancel(id) { const result = await ctx.remote.account.cancelSignIn(id); if (!result.ok) throw new Error('account cancel failed') },
     async hasRunningAccountTasks() {
