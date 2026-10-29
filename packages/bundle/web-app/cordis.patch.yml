@@ -336,6 +336,11 @@
     # Official occupants for the generic sidebar and conversation brand slots.
     - id: ui-brand-official
       name: '@deepseek-ai/dsh-client-ui-brand-official'
+      disabled: !!js "ctx.get('profileContext')?.name === 'desktop'"
+
+    - id: ui-brand-ximu
+      name: '@deepseek-ai/dsh-client-ui-brand-ximu'
+      disabled: !!js "ctx.get('profileContext')?.name !== 'desktop'"
 
     - id: ui-attachment
       name: '@deepseek-ai/dsh-client-ui-attachment'

@@ -84,6 +84,9 @@ export const VIEWER_ENDPOINT_CLASSES = {
   // only makes it eligible for the declaration path; the owner's per-share selection is the grant.
   'account/ackBonusNotified': 'owner-only', // owner account and sign-in; the served page never reads it
   'account/cancelSignIn': 'owner-only', // owner account and sign-in; the served page never reads it
+  'account/createGroupKey': 'owner-only', // owner account credentials
+  'account/getGroupKeys': 'owner-only', // owner account credentials
+  'account/getGroups': 'owner-only', // owner account groups
   'account/getBalance': 'owner-only', // owner account and sign-in; the served page never reads it
   'account/getProfile': 'owner-only', // owner account and sign-in; the served page never reads it
   'account/getState': 'owner-only', // owner account and sign-in; the served page never reads it

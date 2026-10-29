@@ -14,6 +14,7 @@ import type { FileDragHandle } from '@deepseek-ai/dsh-util-file-drag'
 function createProductApi(): DshDesktopProductApi {
   return {
     protocolVersion: 1,
+    brand: { name: '西牧code', logoUrl: 'dsh-app://app/desktop-logo.png' },
     browser: createDesktopBrowserBridge(),
     fileDrag: {
       prepare: (source, requestId) => ipcRenderer.invoke(DESKTOP_IPC.fileDragPrepare, source, requestId) as

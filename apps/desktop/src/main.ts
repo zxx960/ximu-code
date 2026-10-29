@@ -3,8 +3,9 @@ import { WINDOWS_TITLEBAR_HEIGHT } from './windows-layout.ts'
 /** Electron shell: desktop project ownership, custom protocol, windows, and lifecycle. */
 
 import { access, readFile, writeFile } from 'node:fs/promises'
+import { mkdirSync } from 'node:fs'
 import { join } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import {
   app,
   BrowserWindow,
@@ -65,6 +66,16 @@ import { DesktopUpdateOverlays } from './update-overlay.ts'
 import { DesktopQuitConfirmation } from './quit-confirmation.ts'
 import { DesktopTray } from './tray.ts'
 import { DesktopBackgroundNotice } from './background-notice.ts'
+
+// Account and browser state retain their installed directory independently of the product label.
+if (!app.commandLine.hasSwitch('user-data-dir')) {
+  const userData = join(app.getPath('appData'), 'DeepSeek Harness')
+  mkdirSync(userData, { recursive: true })
+  app.setPath('userData', userData)
+}
+app.setName('西牧code')
+const applicationIconPath = app.isPackaged ? join(process.resourcesPath, 'icon.png')
+  : join(app.getAppPath(), 'resources', 'icon-windows.png')
 
 let focusPrimaryWindow = (): void => {}
 let stopForRecovery = async (): Promise<void> => { await stopOperationReports() }
@@ -247,6 +258,8 @@ function createWindow(preload: string, show = false, primary = false): BrowserWi
     minWidth: 520,
     minHeight: 600,
     show,
+    title: '西牧code',
+    icon: applicationIconPath,
     ...(process.platform === 'win32' && primary ? {
       titleBarStyle: 'hidden' as const,
       titleBarOverlay: { height: WINDOWS_TITLEBAR_HEIGHT, color: chromeFallbackFill(),
@@ -739,6 +752,9 @@ async function main(): Promise<void> {
     if (url.hostname === 'shell') return serveWebDocument(request, join(app.getAppPath(),
       url.pathname === '/design-platform.css' ? 'lib/welcome' : 'renderer'))
     if (url.hostname === 'app') {
+      if (url.pathname === '/desktop-logo.png' || url.pathname === '/favicon.svg') {
+        return net.fetch(pathToFileURL(applicationIconPath).href)
+      }
       if (url.pathname === '/' || url.pathname === '/index.html' || url.pathname.startsWith('/assets/')
         || ['/favicon.svg', '/manifest.webmanifest'].includes(url.pathname)) {
         return serveWebDocument(request, join(resources.dsh, 'node_modules', '@deepseek-ai', 'dsh-web-frontend', 'dist'))
@@ -997,10 +1013,9 @@ async function main(): Promise<void> {
     updates.dispose()
   })
 
-  const applicationIconPath = development ? join(app.getAppPath(), 'resources', 'icon-windows.png')
-    : join(process.resourcesPath, 'icon.png')
+  if (process.platform === 'darwin') app.dock?.setIcon(applicationIconPath)
   app.setAboutPanelOptions({
-    applicationName: 'DeepSeek Harness',
+    applicationName: '西牧code',
     applicationVersion: app.getVersion(),
     // The release has no separate build number; omit Electron's bundle version.
     version: '',
@@ -1009,7 +1024,7 @@ async function main(): Promise<void> {
   })
   // A custom application menu replaces Electron's default menu, so macOS needs
   // its standard menus and application hide commands declared explicitly.
-  // Keep app.name stable: Electron derives its default userData directory from it.
+  // The product name and its existing userData directory have independent owners.
   const darwin = process.platform === 'darwin'
   const platformMenus = (): MenuItemConstructorOptions[] => darwin
     ? [shortcuts.fileMenu(currentDesktopLocale().messages), { role: 'editMenu' }, { role: 'windowMenu' }]

@@ -98,7 +98,7 @@ describe('ui-layout client apply', () => {
     const fiber = ctx.plugin({ inject: [...inject], apply })
     await fiber.await()
     const entry = slots.entries('root')[0]!
-    expect(entry.inject).toBeUndefined()
+    expect((entry.inject as () => { productTitle?: string })()).toEqual({ productTitle: undefined })
     const handle = entry.store as ReturnType<typeof createLayoutStore>
     const instance = handle.create()
     expect(handle.create()).toBe(instance)
@@ -122,6 +122,15 @@ describe('ui-layout client apply', () => {
     const pending = layout.beginNavigation()
     await fiber.dispose()
     expect(pending.aborted).toBe(true)
+  })
+
+  it('injects the native product title without changing the browser build title', async () => {
+    vi.stubGlobal('dshDesktop', { brand: { name: '西牧code' } })
+    const { ctx, slots } = await bench()
+    const fiber = ctx.plugin({ inject: [...inject], apply })
+    await fiber.await()
+    const entry = slots.entries('root')[0]!
+    expect((entry.inject as () => { productTitle?: string })()).toEqual({ productTitle: '西牧code' })
   })
 
   it('theme presenter applies the initial snapshot, follows theme/change, and unwinds on dispose', async () => {

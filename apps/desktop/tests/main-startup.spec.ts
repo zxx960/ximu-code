@@ -181,6 +181,9 @@ const harness = await vi.hoisted(async () => {
     getVersion: () => '1.0.0',
     getAppPath: (): string => 'desktop-test-app',
     setAppLogsPath: vi.fn(),
+    commandLine: { hasSwitch: vi.fn(() => true) },
+    setName: vi.fn(),
+    setPath: vi.fn(),
     getPath: vi.fn<(name: string) => string>(),
     setAboutPanelOptions: vi.fn<(options: Electron.AboutPanelOptionsOptions) => void>(),
     requestSingleInstanceLock: () => true,
@@ -470,6 +473,22 @@ afterEach(async () => {
 })
 
 describe('desktop main startup', () => {
+  it('retains the installed data directory independently of the product name', async () => {
+    harness.app.commandLine.hasSwitch.mockReturnValueOnce(false)
+    const retained = join(harness.app.getPath('appData'), 'DeepSeek Harness')
+    await readyForUpdate()
+    expect(harness.app.setName).toHaveBeenCalledWith('西牧code')
+    expect(harness.app.setPath).toHaveBeenCalledWith('userData', retained)
+    expect(existsSync(retained)).toBe(true)
+  })
+
+  it('keeps an explicit launcher data directory when applying native branding', async () => {
+    await readyForUpdate()
+    expect(harness.app.commandLine.hasSwitch).toHaveBeenCalledWith('user-data-dir')
+    expect(harness.app.setPath).not.toHaveBeenCalled()
+    expect(harness.app.setName).toHaveBeenCalledWith('西牧code')
+  })
+
   it.each([true, false])('selects the package manager before Host startup (packaged=%s)', async (packaged) => {
     harness.app.isPackaged = packaged
     await readyForUpdate()
@@ -585,7 +604,7 @@ describe('desktop main startup', () => {
     await vi.advanceTimersByTimeAsync(0)
     const zh = locale === 'zh-CN'
     expect(harness.dialog.showMessageBox).toHaveBeenLastCalledWith(expect.objectContaining({
-      type: 'info', title: zh ? '关于 DeepSeek Harness' : 'About DeepSeek Harness', message: 'DeepSeek Harness',
+      type: 'info', title: zh ? '关于 西牧code' : 'About 西牧code', message: '西牧code',
       detail: zh ? '版本 V1.0.0' : 'Version V1.0.0', buttons: [zh ? '确定' : 'OK'], cancelId: 0,
     }))
     // A dialog that cannot open is logged, not surfaced as an unhandled rejection.
@@ -1029,7 +1048,7 @@ describe('desktop main startup', () => {
     expect(() => handler(event, 'application', NaN, 34)).toThrow('invalid popup request')
     const application = handler(event, 'application', 48, 34)
     expect(harness.menu.buildFromTemplate.mock.lastCall![0].map(item => item.label ?? item.type)).toEqual([
-      '关于 DeepSeek Harness', 'separator', '检查更新…', '管理 dsh 命令…', 'separator', '退出',
+      '关于 西牧code', 'separator', '检查更新…', '管理 dsh 命令…', 'separator', '退出',
     ])
     expect(harness.popup.mock.lastCall![0]).toMatchObject({ window, x: 48, y: 34 })
     expect(harness.popup.mock.lastCall![0].callback).toBeTypeOf('function')

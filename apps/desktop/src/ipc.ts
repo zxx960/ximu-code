@@ -76,6 +76,8 @@ export interface DesktopUpdatePresentation {
 /** Product documents cannot supply update versions, package URLs, or installation authorization. */
 export interface DshDesktopProductApi {
   readonly protocolVersion: 1
+  /** Public product identity supplied only to the primary application renderer. */
+  readonly brand: { readonly name: string; readonly logoUrl: string }
   readonly browser: DesktopBrowserBridge
   readonly fileDrag: DesktopFileDrag
   readonly keyboard: DesktopKeyboardApi

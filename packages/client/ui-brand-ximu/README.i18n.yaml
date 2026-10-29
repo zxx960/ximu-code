@@ -1,0 +1,40 @@
+# Bilingual-pair consistency record for README.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write packages/client/ui-brand-ximu/README.md
+/:
+  en: a9603146db094c8c
+  zh: 638e7a2455b4c3dd
+/deepseek-ai-dsh-client-ui-brand-ximu:
+  en: 7c10be5af283197b
+  zh: 86b010f804d2e815
+/deepseek-ai-dsh-client-ui-brand-ximu/summary:
+  en: 07e6cd5c7158eb9a
+  zh: 1e10c6a61d2c771a
+/deepseek-ai-dsh-client-ui-brand-ximu/table-of-contents:
+  en: 915fd82850e37f7d
+  zh: 79e06089ad1e5cee
+/deepseek-ai-dsh-client-ui-brand-ximu/use-this-package:
+  en: 898917907d9718bb
+  zh: 3610145956853886
+/deepseek-ai-dsh-client-ui-brand-ximu/model-experience:
+  en: 215e7ba838619b7b
+  zh: a311da3843709f90
+/deepseek-ai-dsh-client-ui-brand-ximu/model-experience/brand-presentation:
+  en: 93013a00ac9d380a
+  zh: fadc61db3d7f5b90
+/deepseek-ai-dsh-client-ui-brand-ximu/model-experience/brand-presentation/what-the-model-sees:
+  en: f1409d9f0e0c33c7
+  zh: 56109daeb6d24a46
+/deepseek-ai-dsh-client-ui-brand-ximu/model-experience/brand-presentation/token-effect:
+  en: f7d1eb359afe1932
+  zh: 58d884d73fca014d
+/deepseek-ai-dsh-client-ui-brand-ximu/model-experience/brand-presentation/kv-cache-effect:
+  en: 85a0f63a3d36d21d
+  zh: f2d4321d4d71097f
+/deepseek-ai-dsh-client-ui-brand-ximu/known-limitations-and-deferred-work:
+  en: fad90d7092972137
+  zh: be8531cbc94cb739
+/deepseek-ai-dsh-client-ui-brand-ximu/known-limitations-and-deferred-work/dev-note:
+  en: e67f633dc6fe7773
+  zh: 3bb0c20c93f16f98

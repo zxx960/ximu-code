@@ -3,9 +3,11 @@ import type { AfterPackContext, BeforePackContext } from 'app-builder-lib'
 /** Electron-builder fields asserted by the Desktop release tests. */
 export interface DesktopElectronBuilderConfig {
   readonly appId: string
+  readonly productName: '西牧code'
+  readonly executableName: 'ximu-code'
   readonly copyright: string
   readonly artifactName: string
-  readonly protocols: readonly [{ readonly name: 'DeepSeek Harness'; readonly schemes: readonly ['dsh'] }]
+  readonly protocols: readonly [{ readonly name: '西牧code'; readonly schemes: readonly ['dsh'] }]
   readonly directories: {
     readonly output: string
   }

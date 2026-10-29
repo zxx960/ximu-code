@@ -1,5 +1,6 @@
 {
   "name": "@deepseek-ai/dsh-desktop",
+  "productName": "西牧code",
   "description": "Electron desktop shell for a bundled dsh runtime and external plugins",
   "version": "0.2.2-alpha.2",
   "private": true,
@@ -18,6 +19,7 @@
     "test:updates:local": "pnpm run build && node scripts/test-local-updater.mjs",
     "prepare:runtime": "tsx scripts/prepare-runtime.ts",
     "render:tray-icon": "tsx scripts/render-tray-icon.ts",
+    "render:icons": "tsx scripts/render-application-icons.ts",
     "prepare:primary-runtime": "tsx scripts/prepare-primary-runtime.ts",
     "sign:primary-runtime": "tsx scripts/sign-primary-runtime.ts",
     "cache:windows-signatures": "node scripts/manage-windows-signature-cache.mjs",
