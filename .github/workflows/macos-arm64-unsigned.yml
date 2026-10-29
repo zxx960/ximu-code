@@ -33,7 +33,7 @@ jobs:
       - name: Configure job-owned package caches
         run: |
           printf 'DSH_DESKTOP_PACKAGE_CACHE_DIR=%s/ximu-desktop-package-cache\nPNPM_CONFIG_STORE_DIR=%s/ximu-pnpm-store\n' "$RUNNER_TEMP" "$RUNNER_TEMP" >> "$GITHUB_ENV"
-      - uses: pnpm/action-setup@v5.0.0
+      - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v7.0.0
         with:
           node-version: '24'
