@@ -407,13 +407,13 @@ export function CustomProviderCard(props: CustomProviderCardProps): ReactNode {
                   : creationStatus === 'signed-out' ? 'accountKeysSignedOut'
                     : keyResult?.status === 'failed' ? 'accountKeysFailed'
                       : keyResult === null ? 'accountKeysSignedOut' : 'accountKeysEmpty')}</p>
-            <div className={styles['rowActions']}>
+            <div className={styles['keyActions']}>
               {keyResult?.status === 'ready' && createKey !== undefined && <button
-                type="button" className={styles['linkButton']}
+                type="button" className={styles['primaryButton']}
                 disabled={profileDisabled || listBusy || creationStatus === 'unknown' || creationStatus === 'created'}
                 onClick={() => { void createKeyOnce() }}
               >{t(creatingKey ? 'accountKeyCreating' : 'accountKeyCreate')}</button>}
-              <button type="button" className={styles['linkButton']} disabled={disabled || listBusy} onClick={() => {
+              <button type="button" className={styles['secondaryButton']} disabled={disabled || listBusy} onClick={() => {
                 setKeyQuery(undefined)
                 setSelectedKeyId('')
                 if (creationStatus !== 'created') setKeyCreation(undefined)
