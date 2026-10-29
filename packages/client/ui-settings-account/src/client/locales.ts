@@ -4,6 +4,7 @@ import { onboardingZh, onboardingEn, onboardingJa, onboardingEs, onboardingFr, o
 /** English account dictionary. */
 export const en = {
   refreshBalance: 'Refresh balance',
+  balanceUsd: 'USD',
   passwordTitle: 'Sign in to Ximu',
   email: 'Email',
   password: 'Password',
@@ -45,6 +46,7 @@ export type AccountKey = keyof typeof en
 /** Chinese account settings copy. */
 export const zh: Record<AccountKey, string> = {
   refreshBalance: '刷新余额',
+  balanceUsd: 'USD',
   passwordTitle: '登录西牧账号',
   email: '邮箱',
   password: '密码',
@@ -85,6 +87,7 @@ export const zh: Record<AccountKey, string> = {
 /** Japanese copy, checked against the English keys. */
 export const ja = {
   refreshBalance: '残高を更新',
+  balanceUsd: 'USD',
   passwordTitle: 'Ximu にログイン',
   email: 'メールアドレス',
   password: 'パスワード',
@@ -150,6 +153,7 @@ export const ja = {
 /** Spanish dictionary, checked against the English keys. */
 export const es = {
   refreshBalance: 'Actualizar saldo',
+  balanceUsd: 'USD',
   passwordTitle: 'Iniciar sesión en Ximu',
   email: 'Correo electrónico',
   password: 'Contraseña',
@@ -190,6 +194,7 @@ export const es = {
 /** French dictionary, checked against the English keys. */
 export const fr = {
   refreshBalance: 'Actualiser le solde',
+  balanceUsd: 'USD',
   passwordTitle: 'Se connecter à Ximu',
   email: 'Adresse e-mail',
   password: 'Mot de passe',
@@ -230,6 +235,7 @@ export const fr = {
 /** German dictionary, checked against the English keys. */
 export const de = {
   refreshBalance: 'Guthaben aktualisieren',
+  balanceUsd: 'USD',
   passwordTitle: 'Bei Ximu anmelden',
   email: 'E-Mail',
   password: 'Passwort',
@@ -270,6 +276,7 @@ export const de = {
 /** Russian dictionary, checked against the English keys. */
 export const ru = {
   refreshBalance: 'Обновить баланс',
+  balanceUsd: 'USD',
   passwordTitle: 'Войти в Ximu',
   email: 'Электронная почта',
   password: 'Пароль',
@@ -310,6 +317,7 @@ export const ru = {
 /** Portuguese dictionary, checked against the English keys. */
 export const pt = {
   refreshBalance: 'Atualizar saldo',
+  balanceUsd: 'USD',
   passwordTitle: 'Entrar no Ximu',
   email: 'E-mail',
   password: 'Senha',

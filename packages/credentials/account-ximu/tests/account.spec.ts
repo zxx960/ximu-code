@@ -277,6 +277,8 @@ it.each([false, true])('signs in and reads a currency-free recharge balance (wra
   const f = await fixture(wrapped)
   const state = await f.ctx.deepseekAccount.signInWithPassword('test@example.com', 'synthetic-password')
   expect(state).toMatchObject({ status: 'credential-stored', loginMethod: 'password', attempt: { phase: 'succeeded' } })
+  expect(new URL(state.links.topUpUrl).pathname).toBe('/purchase')
+  expect(new URL(state.links.topUpUrl).origin).toBe(state.links.usageUrl)
   expect(JSON.stringify(state)).not.toContain('synthetic-account-token')
   const [profile, balance] = await Promise.all([
     f.ctx.deepseekAccount.getProfile({ version: 'test', locale: 'en', timezoneOffsetSeconds: 0 }),

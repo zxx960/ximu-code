@@ -151,6 +151,14 @@ export function AccountSection({
     : attempt?.phase === 'expired' ? t('expired')
       : active ? t(attempt.phase === 'initializing' ? 'initializing' : attempt.phase === 'waiting-browser' ? 'waiting' : 'completing')
         : signedIn ? profile?.contact ?? t(details?.profile === undefined ? 'loading' : 'profileUnavailable') : t(passwordAccount ? 'passwordTitle' : 'signInDescription')
+  const balance = signedIn && wallets !== undefined && wallets.length > 0
+    ? <span className={css.amount}>{wallets.map(wallet => <span key={wallet.currency ?? 'balance'}>
+      {formatBalance(wallet.balance, passwordAccount ? '' : wallet.currency === 'CNY' ? '¥' : wallet.currency === 'USD' ? '$' : '')}
+      {passwordAccount && <> {t('balanceUsd')}</>}
+    </span>)}</span>
+    : !signedIn || details?.balance === undefined
+      ? <span className={css.unavailable}>{t(!signedIn ? 'balanceSignedOut' : 'loading')}</span>
+      : passwordAccount ? <span role="status">{t('failed')}</span> : platformLink(t('balanceUnavailable'), css.unavailableLink)
   if (!signedIn && !active) return (
     <section className={css.signedOut} aria-label={t('nav')}>
       <div className={css.signedOutContent}>
@@ -192,13 +200,11 @@ export function AccountSection({
       <div className={css.balanceCard}>
         <div className={css.row}>
           <span>{t('balance')}</span>
-          {signedIn && wallets !== undefined && wallets.length > 0
-            ? <span className={css.amount}>{wallets.map(wallet => <span key={wallet.currency ?? 'balance'}>
-              {formatBalance(wallet.balance, wallet.currency === 'CNY' ? '¥' : wallet.currency === 'USD' ? '$' : '')}
-            </span>)}</span>
-            : !signedIn || details?.balance === undefined
-              ? <span className={css.unavailable}>{t(!signedIn ? 'balanceSignedOut' : 'loading')}</span>
-              : passwordAccount ? <span role="status">{t('failed')}</span> : platformLink(t('balanceUnavailable'), css.unavailableLink)}
+          {passwordAccount ? <div className={css.links}>
+            {balance}
+            {signedIn && <a className={css.linkButton} href={state.links.topUpUrl}
+              target="_blank" rel="noopener noreferrer">{t('topUp')}</a>}
+          </div> : balance}
         </div>
         {!passwordAccount && <>
           <div className={css.divider} />

@@ -18,14 +18,17 @@ import type { AccountAvatarSnapshot } from '../src/client/account-avatar.ts'
 
 afterEach(() => { cleanup(); vi.unstubAllGlobals() })
 
-it.each([en, zh])('shows only the server recharge balance without assuming a currency', async (copy) => {
+it.each([en, zh])('shows the recharge balance in USD with an external purchase link', async (copy) => {
   mount({ status: 'credential-stored', attempt: null, loginMethod: 'password' }, copy, {
     profile: { status: 'ready', value: { id: null, name: 'test@example.com', contact: 'test@example.com' } },
     balance: { status: 'ready', value: [{ balance: '12.34' }], bonusWallets: [] },
   })
-  expect(screen.getByText(copy.balance).parentElement!.textContent).toBe(`${copy.balance}12.34`)
+  expect(screen.getByText(copy.balance).parentElement!.textContent).toBe(`${copy.balance}12.34 ${copy.balanceUsd}${copy.topUp}`)
   expect(screen.queryByText(copy.bonusBalance)).toBeNull()
-  expect(screen.queryByRole('link', { name: copy.topUp })).toBeNull()
+  const purchase = screen.getByRole('link', { name: copy.topUp })
+  expect(purchase.getAttribute('href')).toBe('https://codex.ximuai.com/purchase')
+  expect(purchase.getAttribute('target')).toBe('_blank')
+  expect(purchase.getAttribute('rel')).toBe('noopener noreferrer')
   expect(screen.getByRole('button', { name: copy.refreshBalance })).toBeTruthy()
   await expect(`${screen.getByRole('region').textContent}\n`)
     .toMatchFileSnapshot(`./expected/password-balance-${copy === en ? 'en' : 'zh'}.txt`)
@@ -43,7 +46,7 @@ function operationsOf(state: Omit<AccountView, 'links'>, details?: Partial<Accou
     ...pages === undefined ? {} : { openPlatformPage: pages.open },
     hooks: {
       account: {
-        getSnapshot: () => ({ view: { ...state, links: { usageUrl: 'http://localhost:8081/usage', topUpUrl: 'http://localhost:8081/top_up' } }, details, avatar, failed: false }),
+        getSnapshot: () => ({ view: { ...state, links: { usageUrl: 'http://localhost:8081/usage', topUpUrl: state.loginMethod === 'password' ? 'https://codex.ximuai.com/purchase' : 'http://localhost:8081/top_up' } }, details, avatar, failed: false }),
         subscribe: () => () => {},
       },
       theme: { getSnapshot: () => themeOf('light'), subscribe: () => () => {} },

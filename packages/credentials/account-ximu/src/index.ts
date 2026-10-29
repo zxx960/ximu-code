@@ -107,7 +107,7 @@ export class XimuAccount extends DeepSeekAccount {
   override async getState(): Promise<AccountView> {
     return { status: await this.readGrant() === undefined ? 'signed-out' : 'credential-stored',
       loginMethod: 'password', attempt: this.attempt,
-      links: { usageUrl: new URL(this.settings.baseURL).origin, topUpUrl: new URL(this.settings.baseURL).origin } }
+      links: { usageUrl: new URL(this.settings.baseURL).origin, topUpUrl: new URL('/purchase', this.settings.baseURL).href } }
   }
 
   override startSignIn(): Promise<AccountView> { return this.getState() }

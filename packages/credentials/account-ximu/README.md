@@ -9,7 +9,7 @@ English | [中文](README.zh.md)
 
 ## Summary
 
-The Desktop profile signs in with email and password through the Ximu management API. The Host stores the access token in the credential provider at `account-ximu/default`; passwords are never persisted. Account settings show the email and recharge balance without a currency symbol because the API supplies no currency.
+The Desktop profile signs in with email and password through the Ximu management API. The Host stores the access token in the credential provider at `account-ximu/default`; passwords are never persisted. Account settings show the email and recharge balance with a USD suffix. The account’s top-up link points to `/purchase` on the configured API origin.
 
 ## Table of Contents
 

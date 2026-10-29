@@ -81,7 +81,7 @@ Account login uses a dismissible dialog before the model onboarding credential e
 
 A terminal account-state stream failure appears in the sign-in dialog or Account settings. Plugin unload suppresses late failure reports.
 
-The balance card shows recharge funds without a bonus balance row. An unspecified currency displays no symbol. Password accounts offer Refresh balance and omit Platform usage, top-up, and bonus-credit onboarding; failed reads remain visible and can be retried.
+The balance card shows recharge funds without a bonus balance row. Password accounts display amounts with a USD suffix and offer a Top up link beside the balance, opening the provider’s purchase page in the system browser on Desktop. Refresh balance remains below the amount. Other accounts retain their currency formatting and Platform links. Failed reads remain visible and can be retried.
 
 
 A successful login selects the first available `deepseek-account` model as the default when no other provider has a configured API key, even if a previous default was saved. Configured keys preserve the existing default even when their provider has no available models. Session-specific selections remain unchanged.

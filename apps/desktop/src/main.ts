@@ -258,7 +258,7 @@ function createWindow(preload: string, show = false, primary = false): BrowserWi
     minWidth: 520,
     minHeight: 600,
     show,
-    title: '西牧code',
+    title: currentDesktopLocale().messages.welcomeTitle,
     icon: applicationIconPath,
     ...(process.platform === 'win32' && primary ? {
       titleBarStyle: 'hidden' as const,
