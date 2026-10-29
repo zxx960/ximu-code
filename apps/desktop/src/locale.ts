@@ -242,7 +242,7 @@ export const zh = {
   welcomeTaglineBefore: '欢迎使用 ',
   welcomeTaglineBrand: '西牧code',
   welcomeTaglineAfter: '',
-  welcomeDescription: '组装无限可能，共探智能上限',
+  welcomeDescription: '用更低的价格，用更好的模型',
   welcomeAuthFailed: '登录未完成，请重试。',
   welcomeSignIn: '登录',
   welcomeBack: '返回登录',
