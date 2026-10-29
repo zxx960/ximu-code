@@ -307,6 +307,7 @@
         hiddenProviders: !!js "ctx.get('profileContext')?.name === 'desktop' ? ['deepseek-official'] : []"
         providerCatalog: !!js "ctx.get('profileContext')?.name !== 'desktop'"
         automaticProviderIds: !!js "ctx.get('profileContext')?.name === 'desktop'"
+        customProviderBaseURL: !!js "ctx.get('profileContext')?.name === 'desktop' ? 'https://codex.ximuai.com' : ''"
 
     # Plugin management: the sidebar Plugins page installs, enables, disables,
     # and removes the profile's bundles through the `pluginManager` Remote.

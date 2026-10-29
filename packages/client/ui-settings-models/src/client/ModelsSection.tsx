@@ -43,6 +43,8 @@ export interface ModelsSectionInjected {
   providerCatalog: boolean
   /** Whether the custom API form generates provider IDs without an input. */
   automaticProviderIds: boolean
+  /** Initial editable API address for new custom-provider forms. */
+  customProviderBaseURL: string
   /** The page store (loaded on mount, refreshed on pushed invalidations). */
   controller: ModelsSettingsStore
   hooks: {
@@ -240,19 +242,22 @@ export function providerCopy(template: string, target: ProviderIdentity): string
  * @returns the section, or null while the shell has not injected yet.
  */
 export function ModelsSection(props: ModelsSectionProps): ReactNode {
-  const { controller, useSnapshot, operations, schema, t, renderSlot, providerCatalog, automaticProviderIds } = props
+  const {
+    controller, useSnapshot, operations, schema, t, renderSlot, providerCatalog, automaticProviderIds, customProviderBaseURL,
+  } = props
   if (
     controller === undefined || useSnapshot === undefined || operations === undefined
     || schema === undefined || t === undefined || providerCatalog === undefined || automaticProviderIds === undefined
+    || customProviderBaseURL === undefined
   ) return null
   return <Loaded
-    injected={{ controller, useSnapshot, operations, schema, t, providerCatalog, automaticProviderIds }}
+    injected={{ controller, useSnapshot, operations, schema, t, providerCatalog, automaticProviderIds, customProviderBaseURL }}
     renderSlot={renderSlot}
   />
 }
 
 function Loaded({ injected, renderSlot }: { injected: ModelsSectionFace; renderSlot: ModelsRenderSlot }): ReactNode {
-  const { controller, operations, schema, t, providerCatalog, automaticProviderIds } = injected
+  const { controller, operations, schema, t, providerCatalog, automaticProviderIds, customProviderBaseURL } = injected
   const snapshot = injected.useSnapshot(value => value)
   const state = { ...snapshot, rows: snapshot.rows.map(row => row.entry.provider === 'deepseek-account'
     ? { ...row, entry: { ...row.entry, displayName: t('deepSeekAccount') } } : row) }
@@ -679,6 +684,7 @@ function Loaded({ injected, renderSlot }: { injected: ModelsSectionFace; renderS
                     className={styles['addPanel']}
                   >
                     <CustomProviderCard
+                      initialBaseURL={customProviderBaseURL}
                       automaticId={automaticProviderIds}
                       taken={state.rows.map(row => row.entry.provider)}
                       protocols={protocols}

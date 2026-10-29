@@ -315,7 +315,7 @@ function cardSeatCalls(
 
 async function mountFace(
   scripted: ReturnType<typeof scriptedFace>, hiddenProviders: readonly string[] = [], providerCatalog = true,
-  automaticProviderIds = false,
+  automaticProviderIds = false, customProviderBaseURL = '',
 ) {
   const { face, update, mutate, set, unset } = scripted
   const ctx = ctxWith(face)
@@ -325,6 +325,7 @@ async function mountFace(
   const renderSlot = stubRenderSlot()
   const injected: ModelsSectionProps = {
     automaticProviderIds,
+    customProviderBaseURL,
     providerCatalog,
     controller,
     useSnapshot: bindSnapshotSelector(controller.store),
@@ -367,17 +368,19 @@ async function mountDeepSeekCard(overrides: Parameters<typeof scriptedFace>[0] =
 
 describe('ModelsSection', () => {
   it('opens only the custom API form when the provider catalog is disabled', async () => {
-    const { view } = await mountFace(scriptedFace({}), ['deepseek-official'], false, true)
+    const { view } = await mountFace(scriptedFace({}), ['deepseek-official'], false, true, 'https://codex.ximuai.com')
     fireEvent.click(screen.getByRole('button', { name: en.add }))
     expect(screen.queryByRole('tab', { name: en.addCatalog })).toBeNull()
     expect(screen.queryByText(en.addCatalogHint)).toBeNull()
     expect(screen.queryByLabelText(en.provider)).toBeNull()
     expect(screen.queryByLabelText(en.customRoute)).toBeNull()
     expect(screen.queryByText(en.customRouteHint)).toBeNull()
+    expect(screen.getByLabelText<HTMLInputElement>(en.baseUrl).value).toBe('https://codex.ximuai.com')
     await expect(`${view.container.textContent}\n`).toMatchFileSnapshot('./expected/custom-only-add-provider.txt')
     fireEvent.click(screen.getByRole('button', { name: en.cancel }))
     fireEvent.click(screen.getByRole('button', { name: en.add }))
     expect(screen.getByLabelText<HTMLInputElement>(en.customDisplayName).value).toBe('')
+    expect(screen.getByLabelText<HTMLInputElement>(en.baseUrl).value).toBe('https://codex.ximuai.com')
   })
 
   it('omits the hidden official card and its add-provider entry while keeping other providers', async () => {
@@ -420,6 +423,7 @@ describe('ModelsSection', () => {
       render(<ModelsSection
         providerCatalog
         automaticProviderIds={false}
+        customProviderBaseURL=""
         controller={controller}
         useSnapshot={bindSnapshotSelector(controller.store)}
         operations={operationsWith(face)}
@@ -783,6 +787,7 @@ describe('ModelsSection', () => {
     render(<ModelsSection
       providerCatalog
       automaticProviderIds={false}
+      customProviderBaseURL=""
       controller={controller}
       useSnapshot={bindSnapshotSelector(controller.store)}
       operations={operationsWith(face)}
@@ -810,6 +815,7 @@ describe('ModelsSection', () => {
     render(<ModelsSection
       providerCatalog
       automaticProviderIds={false}
+      customProviderBaseURL=""
       controller={controller}
       useSnapshot={bindSnapshotSelector(controller.store)}
       operations={operationsWith(face)}
@@ -1619,6 +1625,7 @@ describe('ModelsSection', () => {
     render(<ModelsSection
       providerCatalog
       automaticProviderIds={false}
+      customProviderBaseURL=""
       controller={controller}
       useSnapshot={bindSnapshotSelector(controller.store)}
       operations={operationsWith(face)}
@@ -1744,6 +1751,7 @@ describe('ModelsSection', () => {
     render(<ModelsSection
       providerCatalog
       automaticProviderIds={false}
+      customProviderBaseURL=""
       controller={controller}
       useSnapshot={bindSnapshotSelector(controller.store)}
       operations={operationsWith(face.face)}
@@ -1769,6 +1777,7 @@ describe('ModelsSection', () => {
     render(<ModelsSection
       providerCatalog
       automaticProviderIds={false}
+      customProviderBaseURL=""
       controller={controller}
       useSnapshot={bindSnapshotSelector(controller.store)}
       operations={operationsWith(face)}
@@ -2094,6 +2103,7 @@ describe('ModelsSection', () => {
     render(<ModelsSection
       providerCatalog
       automaticProviderIds={false}
+      customProviderBaseURL=""
       controller={controller}
       useSnapshot={bindSnapshotSelector(controller.store)}
       operations={operationsWith(face)}

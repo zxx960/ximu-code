@@ -667,6 +667,8 @@ export interface Config {
   providerCatalog: boolean
   /** Generate custom-provider IDs without displaying an ID input. */
   automaticProviderIds: boolean
+  /** Initial editable API address in new custom-provider forms. */
+  customProviderBaseURL: string
 }
 ```
 <!-- END GENERATED config-catalog:@deepseek-ai/dsh-client-ui-settings-models -->

@@ -93,6 +93,7 @@ export function apply(ctx: ClientContext): void {
   const injected = (): ModelsSectionInjected => ({
     providerCatalog: configured.providerCatalog,
     automaticProviderIds: configured.automaticProviderIds,
+    customProviderBaseURL: configured.customProviderBaseURL,
     controller,
     hooks: { snapshot: controller.store },
     operations,

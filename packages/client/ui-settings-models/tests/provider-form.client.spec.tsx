@@ -214,6 +214,7 @@ async function mountSection(options: Parameters<typeof scriptedFace>[0] = {}) {
   await controller.load()
   const injected: ModelsSectionProps = {
     automaticProviderIds: false,
+    customProviderBaseURL: '',
     providerCatalog: true,
     controller,
     useSnapshot: bindSnapshotSelector(controller.store),
@@ -788,6 +789,7 @@ describe('endpoint interrogation', () => {
     render(
       <CustomProviderCard
         automaticId={false}
+        initialBaseURL=""
         taken={[]} protocols={PROTOCOLS} reasoningLevels={LEVELS} revision={7} operations={operationsWith(scripted.face)}
         t={t} readOnly={false} onClose={vi.fn()}
       />,
@@ -944,6 +946,7 @@ describe('provider rows', () => {
     render(<ModelsSection
       providerCatalog
       automaticProviderIds={false}
+      customProviderBaseURL=""
       controller={controller}
       useSnapshot={bindSnapshotSelector(controller.store)}
       operations={operationsWith(scripted.face)}
@@ -959,6 +962,30 @@ describe('provider rows', () => {
 })
 
 describe('hand-declared providers', () => {
+  it('opens with an editable default API address and preserves edits across form changes', () => {
+    mountCard({ automaticId: true, initialBaseURL: 'https://codex.ximuai.com' })
+    const address = screen.getByLabelText<HTMLInputElement>(en.baseUrl)
+    expect(address.value).toBe('https://codex.ximuai.com')
+    fireEvent.change(address, { target: { value: 'https://gateway.example/v1' } })
+    fireEvent.change(screen.getByLabelText(en.customApi), { target: { value: 'openai-responses' } })
+    fireEvent.change(screen.getByLabelText(en.customDisplayName), { target: { value: 'Gateway' } })
+    expect(address.value).toBe('https://gateway.example/v1')
+    fireEvent.change(address, { target: { value: '' } })
+    expect(address.value).toBe('')
+    expect(buttonNamed(en.create).disabled).toBe(true)
+  })
+
+  it('saves the default API address without requiring the user to type it', async () => {
+    const { mutate, onClose } = mountCard({ automaticId: true, initialBaseURL: 'https://codex.ximuai.com' })
+    fireEvent.click(screen.getByRole('button', { name: en.addModel }))
+    fireEvent.change(screen.getByLabelText(`${en.modelId} 1`), { target: { value: 'model-a' } })
+    fireEvent.click(screen.getByText(en.create))
+    await waitFor(() => { expect(onClose).toHaveBeenCalledWith(true) })
+    expect(firstMutate(mutate).ops[0]?.value).toMatchObject({
+      baseURL: 'https://codex.ximuai.com', models: [{ id: 'model-a' }],
+    })
+  })
+
   it.each([false, true])('keeps generated IDs distinct when the directory changes after opening: %s', async (arrivesLater) => {
     const uuid = '00000000-0000-4000-8000-000000000000'
     const randomUUID = vi.spyOn(providerIds, 'randomUUID').mockReturnValue(uuid)
@@ -997,6 +1024,7 @@ describe('hand-declared providers', () => {
     render(
       <CustomProviderCard
         automaticId={false}
+        initialBaseURL=""
         taken={['openai']}
         protocols={PROTOCOLS}
         reasoningLevels={LEVELS}

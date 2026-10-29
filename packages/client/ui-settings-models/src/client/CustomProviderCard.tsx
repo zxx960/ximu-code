@@ -77,6 +77,8 @@ function isHttpUrl(value: string): boolean {
 export interface CustomProviderCardProps {
   /** Generate the internal route ID instead of displaying its input and guidance. */
   automaticId: boolean
+  /** Editable API address used when this form opens. */
+  initialBaseURL: string
   /** Route ids already declared, so the card refuses to shadow one. */
   taken: readonly string[]
   /** Wire protocols the adapter can serve, in the order it reports them. */
@@ -115,7 +117,7 @@ export function CustomProviderCard(props: CustomProviderCardProps): ReactNode {
   const [openedAt] = useState(() => props.revision)
   const [route, setRoute] = useState(() => props.automaticId ? generateProviderId(taken) : '')
   const [displayName, setDisplayName] = useState('')
-  const [baseURL, setBaseURL] = useState('')
+  const [baseURL, setBaseURL] = useState(props.initialBaseURL)
   const [protocol, setProtocol] = useState(protocols[0] ?? '')
   const [keyDraft, setKeyDraft] = useState('')
   const [models, setModels] = useState<readonly ModelDraft[]>([])

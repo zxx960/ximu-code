@@ -41,6 +41,8 @@ Host configuration `credentialOnboarding` defaults to `true`. The Electron prelo
 
 ### API keys
 
+`customProviderBaseURL` seeds the editable API address when a custom-provider form opens. Desktop defaults to `https://codex.ximuai.com`; browser profiles start blank. Editing or clearing the address is preserved until the form closes, and creating a provider saves the current input value.
+
 `automaticProviderIds` generates an internal unique ID for each custom API form instead of showing a Provider ID input. Desktop enables it; browser profiles default to manual IDs. The ID stays fixed after the profile is saved, including retries of a failed key write. Existing provider IDs are retained.
 
 `providerCatalog` controls the third-party provider catalog in the add-provider card. It defaults to `true`; Desktop sets it to `false` and opens the custom model API form directly. Existing provider rows remain editable.
