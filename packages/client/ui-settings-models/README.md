@@ -41,7 +41,7 @@ Host configuration `credentialOnboarding` defaults to `true`. The Electron prelo
 
 ### API keys
 
-`accountGroups` replaces the custom-provider display-name input with a select populated from the signed-in account's available groups. Desktop enables it; browser profiles keep manual names. Creating a provider requires a group selection and saves its name as `displayName`. Loading failures, an absent login, and an empty group list keep creation blocked with a retry action. Group selection does not configure an API key or change the protocol.
+`accountGroups` replaces the custom-provider display-name and API-key inputs with linked selects. Desktop enables it; browser profiles keep manual inputs. Selecting a group queries its usable keys; switching groups clears the key selection and discards late replies. Creating a provider requires both selections, saves the group name as `displayName`, and stores the chosen key through the credential provider. Model discovery uses that key. Options show key names and IDs, never secrets. Failed or empty queries block dependent actions and offer retry. These queries create no server-side keys and do not change the protocol.
 
 `customProviderBaseURL` seeds the editable API address when a custom-provider form opens. Desktop defaults to `https://codex.ximuai.com`; browser profiles start blank. Editing or clearing the address is preserved until the form closes, and creating a provider saves the current input value.
 

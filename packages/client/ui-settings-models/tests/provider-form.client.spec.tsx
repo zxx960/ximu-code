@@ -23,6 +23,7 @@ afterEach(cleanup)
 
 const t: ModelsSectionInjected['t'] = key => en[key]
 type GroupId = Extract<Awaited<ReturnType<NonNullable<ModelsOperations['listAccountGroups']>>>, { status: 'ready' }>['value'][number]['id']
+type KeyId = Extract<Awaited<ReturnType<NonNullable<ModelsOperations['listAccountGroupKeys']>>>, { status: 'ready' }>['value'][number]['id']
 
 const PROTOCOLS = ['openai-completions', 'openai-responses', 'anthropic-messages']
 const LEVELS = ['off', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max']
@@ -965,10 +966,13 @@ describe('provider rows', () => {
 describe('hand-declared providers', () => {
   it('queries groups only when enabled and turns Remote failures into a safe query status', async () => {
     const getGroups = vi.fn(async () => remoteFail('private Host diagnostics'))
-    const ctx = ctxWith({ account: { getGroups } })
+    const getGroupKeys = vi.fn(async () => remoteFail('private key diagnostics'))
+    const ctx = ctxWith({ account: { getGroups, getGroupKeys } })
     expect(createModelsOperations(ctx).listAccountGroups).toBeUndefined()
+    expect(createModelsOperations(ctx).listAccountGroupKeys).toBeUndefined()
     expect(getGroups).not.toHaveBeenCalled()
     expect(await createModelsOperations(ctx, true).listAccountGroups?.()).toEqual({ status: 'failed' })
+    expect(await createModelsOperations(ctx, true).listAccountGroupKeys?.(7 as GroupId)).toEqual({ status: 'failed' })
   })
 
   it('opens with an editable default API address and preserves edits across form changes', () => {
@@ -1028,6 +1032,7 @@ describe('hand-declared providers', () => {
     overrides: Partial<Parameters<typeof CustomProviderCard>[0]> = {},
     wire: Parameters<typeof scriptedFace>[0] = {},
     listAccountGroups?: ModelsOperations['listAccountGroups'],
+    listAccountGroupKeys?: ModelsOperations['listAccountGroupKeys'],
   ) {
     const scripted = scriptedFace(wire)
     const onClose = vi.fn()
@@ -1039,7 +1044,9 @@ describe('hand-declared providers', () => {
         protocols={PROTOCOLS}
         reasoningLevels={LEVELS}
         revision={7}
-        operations={{ ...operationsWith(scripted.face), ...listAccountGroups === undefined ? {} : { listAccountGroups } }}
+        operations={{ ...operationsWith(scripted.face),
+          ...listAccountGroups === undefined ? {} : { listAccountGroups },
+          ...listAccountGroupKeys === undefined ? {} : { listAccountGroupKeys } }}
         t={t}
         readOnly={false}
         onClose={onClose}
@@ -1048,6 +1055,86 @@ describe('hand-declared providers', () => {
     )
     return { ...scripted, onClose }
   }
+
+  function mountKeys(load: NonNullable<ModelsOperations['listAccountGroupKeys']>, wire: Parameters<typeof scriptedFace>[0] = {}) {
+    return mountCard({ automaticId: true, initialBaseURL: 'https://codex.ximuai.com' }, wire,
+      async () => ({ status: 'ready', value: [
+        { id: 7 as GroupId, name: 'Group A', platform: 'openai' },
+        { id: 8 as GroupId, name: 'Group B', platform: 'anthropic' },
+      ] }), load)
+  }
+
+  it('uses the selected group key for model discovery and credential storage without showing its secret', async () => {
+    const load = vi.fn<NonNullable<ModelsOperations['listAccountGroupKeys']>>().mockResolvedValue({ status: 'ready', value: [
+      { id: 12 as KeyId, name: 'Same name', key: 'first-private-key' },
+      { id: 13 as KeyId, name: 'Same name', key: 'second-private-key' },
+    ] })
+    const discover = vi.fn(async () => ok([{ id: 'example-model' }]))
+    const { mutate, set, onClose } = mountKeys(load, { discover })
+    const keySelect = screen.getByRole<HTMLSelectElement>('combobox', { name: en.keyInput })
+    expect(keySelect.disabled).toBe(true)
+    expect(load).not.toHaveBeenCalled()
+    await screen.findByRole('option', { name: 'Group A' })
+    fireEvent.change(screen.getByLabelText(en.accountGroup), { target: { value: '7' } })
+    await screen.findByRole('option', { name: 'Same name (#12)' })
+    expect(load).toHaveBeenCalledExactlyOnceWith(7)
+    expect(keySelect.value).toBe('')
+    expect(buttonNamed(en.fetchModels).disabled).toBe(true)
+    expect(buttonNamed(en.create).disabled).toBe(true)
+    fireEvent.change(keySelect, { target: { value: '13' } })
+    expect([...keySelect.options].map(item => item.value)).toEqual(['', '12', '13'])
+    expect(document.body.textContent).not.toContain('second-private-key')
+    fireEvent.click(buttonNamed(en.fetchModels))
+    await screen.findByText(en.fetchTitle)
+    expect(discover).toHaveBeenCalledWith('llm-pi-ai', expect.objectContaining({ apiKey: 'second-private-key' }))
+    fireEvent.click(screen.getByText(en.fetchAdopt))
+    await expect(`${document.body.textContent}\n`).toMatchFileSnapshot('./expected/account-group-key-provider.txt')
+    fireEvent.click(buttonNamed(en.create))
+    await waitFor(() => { expect(onClose).toHaveBeenCalledWith(true) })
+    const route = firstMutate(mutate).ops[0]!.path[1]!
+    expect(set).toHaveBeenCalledExactlyOnceWith(deriveKeyRef(route), 'second-private-key')
+    expect(JSON.stringify(firstMutate(mutate))).not.toContain('second-private-key')
+  })
+
+  it('clears the key when switching groups and ignores a late reply from the previous group', async () => {
+    const first = Promise.withResolvers<Awaited<ReturnType<NonNullable<ModelsOperations['listAccountGroupKeys']>>>>()
+    const load = vi.fn<NonNullable<ModelsOperations['listAccountGroupKeys']>>()
+      .mockReturnValueOnce(first.promise).mockResolvedValue({ status: 'ready', value: [{ id: 18 as KeyId, name: 'Key B', key: 'secret-b' }] })
+    mountKeys(load)
+    await screen.findByRole('option', { name: 'Group A' })
+    const group = screen.getByLabelText(en.accountGroup)
+    const keys = screen.getByRole<HTMLSelectElement>('combobox', { name: en.keyInput })
+    fireEvent.change(group, { target: { value: '7' } })
+    expect(keys.getAttribute('aria-busy')).toBe('true')
+    fireEvent.change(group, { target: { value: '8' } })
+    await screen.findByRole('option', { name: 'Key B (#18)' })
+    await act(async () => { first.resolve({ status: 'ready', value: [{ id: 12 as KeyId, name: 'Key A', key: 'secret-a' }] }) })
+    expect(screen.queryByRole('option', { name: 'Key A (#12)' })).toBeNull()
+    fireEvent.change(keys, { target: { value: '18' } })
+    expect(keys.value).toBe('18')
+    fireEvent.change(group, { target: { value: '7' } })
+    expect(keys.value).toBe('')
+    expect(buttonNamed(en.fetchModels).disabled).toBe(true)
+    await waitFor(() => { expect(load).toHaveBeenCalledTimes(3) })
+  })
+
+  it.each([
+    [{ status: 'failed' as const }, en.accountKeysFailed],
+    [{ status: 'ready' as const, value: [] }, en.accountKeysEmpty],
+    [null, en.accountKeysSignedOut],
+  ])('keeps the group and permits retry after an unavailable key list (%s)', async (result, message) => {
+    const load = vi.fn<NonNullable<ModelsOperations['listAccountGroupKeys']>>().mockResolvedValueOnce(result)
+      .mockResolvedValueOnce({ status: 'ready', value: [{ id: 12 as KeyId, name: 'Key', key: 'secret' }] })
+    mountKeys(load)
+    await screen.findByRole('option', { name: 'Group A' })
+    fireEvent.change(screen.getByLabelText(en.accountGroup), { target: { value: '7' } })
+    await screen.findByText(message)
+    expect(buttonNamed(en.create).disabled).toBe(true)
+    fireEvent.click(buttonNamed(en.retry))
+    await screen.findByRole('option', { name: 'Key (#12)' })
+    expect(screen.getByLabelText<HTMLSelectElement>(en.accountGroup).value).toBe('7')
+    expect(screen.queryByText(message)).toBeNull()
+  })
 
   it('loads account groups and saves the chosen group name as the display name', async () => {
     const pending = Promise.withResolvers<Awaited<ReturnType<NonNullable<ModelsOperations['listAccountGroups']>>>>()

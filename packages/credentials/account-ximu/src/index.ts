@@ -6,6 +6,7 @@ import Schema from '@deepseek-ai/schemastery'
 import { z } from 'zod'
 import { credentialKey } from '@deepseek-ai/dsh-credentials'
 import { DeepSeekAccount, type AccountDetails, type AccountGroupId, type AccountGroups, type AccountView, type SignInAttemptView, type SignInAttemptId, type SignInErrorCode } from '@deepseek-ai/dsh-deepseek-account'
+import type { AccountApiKeyId, AccountGroupKey, AccountGroupKeys } from '@deepseek-ai/dsh-deepseek-account'
 
 const KEY = credentialKey('account-ximu', 'default')
 const grant = z.object({ version: z.literal(1), issuer: z.url(), token: z.string().regex(/^[\x21-\x7e]+$/) })
@@ -15,6 +16,19 @@ const groups = z.array(z.object({
   name: z.string().trim().min(1),
   platform: z.string().min(1),
 })).refine(value => new Set(value.map(group => group.id)).size === value.length)
+const keyPage = z.object({
+  pages: z.number().int().nonnegative(),
+  items: z.array(z.object({
+    id: z.number().int().positive().transform(id => id as AccountApiKeyId),
+    name: z.string(),
+    key: z.string().regex(/^[\x21-\x7e]+$/),
+    group_id: z.number().int().positive().nullable().optional(),
+    status: z.string(),
+    expires_at: z.iso.datetime({ offset: true }).nullable().optional(),
+    quota: z.number().default(0),
+    quota_used: z.number().default(0),
+  })),
+})
 
 /** Ximu management API and bounded request settings. */
 export interface Config {
@@ -24,6 +38,8 @@ export interface Config {
   requestTimeoutMs?: number
   /** Maximum bytes in one management response. */
   maxResponseBytes?: number
+  /** Maximum pages admitted for one complete group-key query. */
+  maxKeyPages?: number
   /** Permit loopback HTTP for local API fixtures only. */
   allowLoopbackHttp?: boolean
 }
@@ -32,6 +48,7 @@ export const Config = Schema.object({
   baseURL: Schema.string().default('https://codex.ximuai.com/api/v1'),
   requestTimeoutMs: Schema.number().min(1).max(120_000).default(30_000),
   maxResponseBytes: Schema.number().min(1).max(1_048_576).step(1).default(65_536),
+  maxKeyPages: Schema.number().min(1).max(1000).step(1).default(100),
   allowLoopbackHttp: Schema.boolean().default(false),
 })
 
@@ -178,6 +195,51 @@ export class XimuAccount extends DeepSeekAccount {
       if (!result.success) throw new AccountError('protocol')
       this.lifetime.signal.throwIfAborted()
       return generation === this.generation ? { status: 'ready', value: result.data } : null
+    } catch (error) {
+      if (generation !== this.generation || this.lifetime.signal.aborted) return null
+      if (error instanceof AccountError && error.code === 'expired' && token !== undefined) {
+        await this.expireGrant(token, generation)
+        return null
+      }
+      return { status: 'failed' }
+    }
+  }
+
+  override async getGroupKeys(groupId: AccountGroupId): Promise<AccountGroupKeys> {
+    const generation = this.generation
+    let token: string | undefined
+    try {
+      if (!z.number().int().positive().safeParse(groupId).success) throw new AccountError('protocol')
+      token = (await this.readGrant())?.token
+      if (token === undefined || generation !== this.generation || this.lifetime.signal.aborted) return null
+      const deadline = AbortSignal.any([this.lifetime.signal, AbortSignal.timeout(this.settings.requestTimeoutMs)])
+      const values: z.infer<typeof keyPage>['items'] = []
+      const ids = new Set<AccountApiKeyId>()
+      let pages = 1
+      for (let page = 1; page <= pages; page++) {
+        const query = new URLSearchParams({ page: String(page), page_size: '100', group_id: String(groupId) })
+        const result = keyPage.safeParse(await this.request(`keys?${query}`, {
+          headers: { authorization: `Bearer ${token}` },
+        }, deadline))
+        deadline.throwIfAborted()
+        if (generation !== this.generation) return null
+        if (!result.success || result.data.pages > this.settings.maxKeyPages
+          || (page > 1 && result.data.pages !== pages)
+          || (result.data.pages === 0 && result.data.items.length > 0)) throw new AccountError('protocol')
+        pages = result.data.pages
+        for (const item of result.data.items) {
+          if (ids.has(item.id)) throw new AccountError('protocol')
+          ids.add(item.id)
+          values.push(item)
+        }
+      }
+      const now = Date.now()
+      const keys: AccountGroupKey[] = values.filter(item => item.status === 'active'
+        && (item.group_id === undefined || item.group_id === groupId)
+        && (item.expires_at == null || Date.parse(item.expires_at) > now)
+        && (item.quota <= 0 || item.quota_used < item.quota))
+        .map(({ id, name, key }) => ({ id, name, key }))
+      return { status: 'ready', value: keys }
     } catch (error) {
       if (generation !== this.generation || this.lifetime.signal.aborted) return null
       if (error instanceof AccountError && error.code === 'expired' && token !== undefined) {

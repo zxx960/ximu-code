@@ -25,6 +25,18 @@ export interface AccountGroup {
 /** Group query outcome; null indicates an absent or changed account, or unsupported groups. */
 export type AccountGroups = { readonly status: 'ready'; readonly value: readonly AccountGroup[] }
   | { readonly status: 'failed' } | null
+/** Management API identity of an inference key. */
+export type AccountApiKeyId = BrandedNumber<'AccountApiKeyId'>
+/** An explicitly requested group key, held only in the provider-creation draft until saved. */
+export interface AccountGroupKey {
+  readonly id: AccountApiKeyId
+  readonly name: string
+  /** Inference secret; never use as an option label or value, or write it to settings or logs. */
+  readonly key: string
+}
+/** Usable keys for one group; null indicates an absent, changed, or unsupported account. */
+export type AccountGroupKeys = { readonly status: 'ready'; readonly value: readonly AccountGroupKey[] }
+  | { readonly status: 'failed' } | null
 /**
  * Safe failure codes rendered through the caller's locale dictionary.
  * `no-response`: fetch returned no Response; `network`: HTTP or account-detail retrieval failure.

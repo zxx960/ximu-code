@@ -1,0 +1,1 @@
+GroupChoose a groupGroup AGroup BBase URLAPI protocolOpenAI Chat CompletionsOpenAI ResponsesAnthropic MessagesAPI keyChoose an API keySame name (#12)Same name (#13)ModelsFetch available modelsAdd modelCancelCreate provider

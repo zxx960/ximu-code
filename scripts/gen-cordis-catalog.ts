@@ -843,6 +843,8 @@ export const LINK_MAP: Readonly<Record<string, string>> = {
   AccountView: 'credentials.md',
   AccountDetails: 'credentials.md',
   AccountGroups: 'credentials.md',
+  AccountGroupKeys: 'credentials.md',
+  AccountGroupId: 'credentials.md',
   AccountClientMetadata: 'credentials.md',
   AccountBonusBatch: 'credentials.md',
   AccountBonusOrderId: 'credentials.md',

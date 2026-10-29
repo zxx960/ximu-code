@@ -1,7 +1,7 @@
 /** Account Remote delegation preserves provider results, failures, and stream lifetime. */
 import { Context } from '@deepseek-ai/cordis'
 import type { DeepSeekAccount } from '@deepseek-ai/dsh-deepseek-account'
-import type { AccountBonusBatch, AccountBonusOrderId, AccountClientMetadata, AccountUserId } from '@deepseek-ai/dsh-deepseek-account/types'
+import type { AccountBonusBatch, AccountBonusOrderId, AccountClientMetadata, AccountGroupId, AccountUserId } from '@deepseek-ai/dsh-deepseek-account/types'
 import type { AccountView, SignInAttemptId } from '../src/types.ts'
 import { afterEach, expect, it, vi } from 'vitest'
 import AccountController from '../src/index.ts'
@@ -17,6 +17,7 @@ function fixture() {
   const provider = {
     getState: vi.fn<DeepSeekAccount['getState']>().mockResolvedValue(state),
     getGroups: vi.fn<DeepSeekAccount['getGroups']>().mockResolvedValue(null),
+    getGroupKeys: vi.fn<DeepSeekAccount['getGroupKeys']>().mockResolvedValue(null),
     getProfile: vi.fn<DeepSeekAccount['getProfile']>().mockResolvedValue({ status: 'failed' }),
     getBalance: vi.fn<DeepSeekAccount['getBalance']>().mockResolvedValue(null),
     getUnnotifiedBonuses: vi.fn<DeepSeekAccount['getUnnotifiedBonuses']>().mockResolvedValue(null),
@@ -36,6 +37,8 @@ it('delegates account operations without coupling profile and balance queries', 
   expect(await controller.getState()).toBe(state)
   expect(await controller.getGroups()).toBeNull()
   expect(provider.getGroups).toHaveBeenCalledExactlyOnceWith()
+  expect(await controller.getGroupKeys(7 as AccountGroupId)).toBeNull()
+  expect(provider.getGroupKeys).toHaveBeenCalledExactlyOnceWith(7 as AccountGroupId)
   expect(await controller.getProfile(client)).toEqual({ status: 'failed' })
   expect(provider.getBalance).not.toHaveBeenCalled()
   expect(await controller.getBalance(client)).toBeNull()

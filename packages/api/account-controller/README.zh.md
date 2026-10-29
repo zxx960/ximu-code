@@ -35,6 +35,8 @@ account 命名空间提供 getState、getProfile / getBalance、getUnnotifiedBon
 
 `getGroups()` 仅返回当前账号可供界面显示的分组 ID、名称和平台。账号缺失、已切换或不支持分组时返回 null；查询失败状态允许重试。管理凭据不会传给 Client。
 
+`getGroupKeys(groupId)` 为提供商创建草稿返回显式请求的推理密钥。成功结果包含密钥 ID、名称和原文；使用方只显示名称与 ID。同样采用 null 和查询失败状态。此操作不会返回管理令牌，也不会写入凭据。
+
 <a id="further-exploration"></a>
 ## 深入探索
 

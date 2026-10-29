@@ -66,6 +66,8 @@ Password account providers expose `AccountView.loginMethod: password` and accept
 
 `AccountGroups` projects the current account's available groups as `ready` with an array of `AccountGroup` entries, `failed` for a retryable query failure, or null for an absent, changed, or unsupported account. Each entry contains a branded numeric `AccountGroupId`, name, and platform; management credentials remain Host-only. `getGroups()` defaults to null for providers without group support.
 
+`AccountGroupKeys` uses the same ready, failed, and null outcomes for explicitly requested inference keys. `AccountGroupKey` carries a branded numeric `AccountApiKeyId`, name, and secret; configuration drafts render only IDs and names and save a chosen secret through credentials. `getGroupKeys(groupId)` defaults to null for providers without group-key support.
+
 <!-- BEGIN GENERATED cordis-surface (gen-cordis-catalog.ts) — do not edit between markers -->
 
 <a id="cordis-surface"></a>
@@ -269,7 +271,7 @@ Source: [`packages/api/settings-controller/src/credentials.ts`](../../packages/a
 
 ### `ctx.deepseekAccount` — `DeepSeekAccount` (abstract seam)
 
-Account operations; only Host consumers can obtain a request credential.
+Account operations; management grants and embedded-page credentials remain Host-only.
 
 ```ts cordis-catalog
 /**
@@ -283,6 +285,13 @@ abstract getState(): Promise<AccountView>
  * @returns groups or a query failure; null when absent, changed, or unsupported by this provider.
  */
 getGroups(): Promise<AccountGroups>
+
+/**
+ * Query usable inference keys for an explicitly selected group.
+ * @param _groupId - group selected from the current account's available groups.
+ * @returns transient inference keys or a query failure; null when absent, changed, or unsupported.
+ */
+getGroupKeys(_groupId: AccountGroupId): Promise<AccountGroupKeys>
 
 /**
  * Query Platform profile independently of wallet balances.

@@ -23,11 +23,13 @@ The Desktop profile signs in with email and password through the Ximu management
 
 The base bundle mounts this provider only for the Desktop profile. `baseURL` defaults to `https://codex.ximuai.com/api/v1`; `requestTimeoutMs` defaults to 30000 and `maxResponseBytes` to 65536. HTTPS is required except for explicitly enabled loopback HTTP test fixtures.
 
-`signInWithPassword` submits `POST auth/login`; `getProfile` and `getBalance` share an overlapping `GET auth/me` request authenticated with `Authorization: Bearer`. Both direct responses and successful `{ code: 0, data }` envelopes are accepted. Ordinary account UI consumers receive only validated account and group data, without credentials.
+`signInWithPassword` submits `POST auth/login`; `getProfile` and `getBalance` share an overlapping `GET auth/me` request authenticated with `Authorization: Bearer`. Both direct responses and successful `{ code: 0, data }` envelopes are accepted. Profile and balance results contain no credentials.
 
 `getGroups` reads `GET groups/available` using the stored management token and returns validated group IDs, names, and platform names. The result is null when signed out or when credentials change during the request; a failed query returns a retryable failure without discarding the login. Empty lists are successful results.
 
-HTTP 401 on login reports invalid credentials. HTTP 401 on `auth/me` or `groups/available` removes the local login and publishes session expiry; other query failures retain the login and display a retryable failure. Sign-out removes the local token and retains independently configured model API keys. Cancellation prevents pending login responses from committing; an admitted credential write finishes before sign-out returns.
+`getGroupKeys(groupId)` reads `/keys?page=1&page_size=100&group_id=…` and follows every page within one `requestTimeoutMs` deadline. `maxKeyPages` defaults to 100; an incomplete, inconsistent, or oversized listing fails without returning partial keys. Only active keys for the requested group with remaining quota and no elapsed expiry are returned; omitted group IDs inherit the requested group. The explicit result contains inference secrets for the provider-creation draft, never the management token. Queries do not create keys or persist them.
+
+HTTP 401 on login reports invalid credentials. HTTP 401 on an authenticated account query removes the local login and publishes session expiry; other query failures retain the login and display a retryable failure. Sign-out removes the local token and retains independently configured model API keys. Cancellation prevents pending login responses from committing; an admitted credential write finishes before sign-out returns.
 
 <a id="model-experience"></a>
 ## Model Experience
@@ -50,7 +52,7 @@ Account operations do not change model request prefixes.
 
 <a id="known-limitations-and-deferred-work"></a>
 
-- The management API documents neither token refresh nor remote logout. Group keys, inference routes, model discovery, and online top-up pages are not provided by this plugin. A login therefore does not configure a model provider. The API supplies no stable account ID or balance currency.
+- The management API documents neither token refresh nor remote logout. This plugin does not create keys or configure inference routes, model discovery, or online top-up pages. Login alone does not configure a model provider. The API supplies no stable account ID or balance currency.
 
 <a id="dev-note"></a>
 ### Dev Note

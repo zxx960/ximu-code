@@ -1,8 +1,9 @@
 /** Account Service Definition shared by platform, API, and model consumers. */
 import { Context, Service } from '@deepseek-ai/cordis'
-import type { AccountBonusBatch, AccountBonusOrderId, AccountClientMetadata, AccountDetails, AccountGroups, AccountUserId, AccountView, SignInAttemptId } from './types.ts'
+import type { AccountBonusBatch, AccountBonusOrderId, AccountClientMetadata, AccountDetails, AccountGroupId, AccountGroupKeys, AccountGroups, AccountUserId, AccountView, SignInAttemptId } from './types.ts'
 export type { AccountBonusBatch, AccountBonusNotification, AccountBonusOrderId, AccountClientMetadata, AccountDetails, AccountGroup, AccountGroupId, AccountGroups, AccountProfile, AccountUserId, AccountWallet, AccountLinks, AccountView, SignInAttemptId, SignInAttemptView, SignInErrorCode } from './types.ts'
 export { isRunningAccountTask, installAccountTaskCancellation } from './account-tasks.ts'
+export type { AccountApiKeyId, AccountGroupKey, AccountGroupKeys } from './types.ts'
 
 declare module '@deepseek-ai/cordis' {
   interface Events {
@@ -28,7 +29,7 @@ export interface PlatformSession {
   readonly requestHeaders?: Readonly<Record<string, string>>
 }
 
-/** Account operations; only Host consumers can obtain a request credential. */
+/** Account operations; management grants and embedded-page credentials remain Host-only. */
 export abstract class DeepSeekAccount extends Service {
   /** @param ctx - context owning this account implementation. */
   constructor(ctx: Context) { super(ctx, 'deepseekAccount') }
@@ -42,6 +43,12 @@ export abstract class DeepSeekAccount extends Service {
    * @returns groups or a query failure; null when absent, changed, or unsupported by this provider.
    */
   getGroups(): Promise<AccountGroups> { return Promise.resolve(null) }
+  /**
+   * Query usable inference keys for an explicitly selected group.
+   * @param _groupId - group selected from the current account's available groups.
+   * @returns transient inference keys or a query failure; null when absent, changed, or unsupported.
+   */
+  getGroupKeys(_groupId: AccountGroupId): Promise<AccountGroupKeys> { return Promise.resolve(null) }
   /**
    * Query Platform profile independently of wallet balances.
    * A ready result whose stable profile ID first becomes available or changes notifies identity-enabled watch

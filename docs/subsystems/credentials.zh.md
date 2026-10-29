@@ -66,6 +66,8 @@ AccountDetails.balance 将充值钱包投影为 value、赠送钱包投影为 bo
 
 `AccountGroups` 将当前账号的可用分组投影为包含 `AccountGroup` 数组的 `ready`、可重试查询失败时的 `failed`，或在账号缺失、变化、不支持分组时返回 null。每个条目包含带品牌的数值 `AccountGroupId`、名称和平台；管理凭据仅供 Host 使用。不支持分组的提供方，其 `getGroups()` 默认返回 null。
 
+`AccountGroupKeys` 对显式请求的推理密钥采用相同的 ready、failed 和 null 结果。`AccountGroupKey` 包含带品牌的数值 `AccountApiKeyId`、名称和密钥原文；配置草稿只显示 ID 与名称，并通过凭据保存所选密钥。不支持分组密钥的提供方，其 `getGroupKeys(groupId)` 默认返回 null。
+
 <!-- BEGIN GENERATED cordis-surface (gen-cordis-catalog.ts) — do not edit between markers -->
 
 <a id="cordis-surface"></a>
@@ -269,7 +271,7 @@ Source: [`packages/api/settings-controller/src/credentials.ts`](../../packages/a
 
 ### `ctx.deepseekAccount` — `DeepSeekAccount` (abstract seam)
 
-Account operations; only Host consumers can obtain a request credential.
+Account operations; management grants and embedded-page credentials remain Host-only.
 
 ```ts cordis-catalog
 /**
@@ -283,6 +285,13 @@ abstract getState(): Promise<AccountView>
  * @returns groups or a query failure; null when absent, changed, or unsupported by this provider.
  */
 getGroups(): Promise<AccountGroups>
+
+/**
+ * Query usable inference keys for an explicitly selected group.
+ * @param _groupId - group selected from the current account's available groups.
+ * @returns transient inference keys or a query failure; null when absent, changed, or unsupported.
+ */
+getGroupKeys(_groupId: AccountGroupId): Promise<AccountGroupKeys>
 
 /**
  * Query Platform profile independently of wallet balances.

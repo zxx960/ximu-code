@@ -8,7 +8,7 @@ import { LocalCredentialProvider } from '@deepseek-ai/dsh-credentials-local'
 import { credentialKey } from '@deepseek-ai/dsh-credentials'
 import { afterEach, expect, it, vi } from 'vitest'
 import XimuAccount from '../src/index.ts'
-import type { AccountUserId, AccountBonusOrderId, SignInAttemptId } from '@deepseek-ai/dsh-deepseek-account'
+import type { AccountUserId, AccountBonusOrderId, AccountGroupId, SignInAttemptId } from '@deepseek-ai/dsh-deepseek-account'
 
 const client = { version: 'test', locale: 'en', timezoneOffsetSeconds: 0 }
 const key = credentialKey('account-ximu', 'default')
@@ -23,10 +23,12 @@ async function fixture(wrapped = false) {
   let balance = 12.34
   let loginResponse: unknown = { access_token: 'synthetic-account-token' }
   let groups: unknown = [{ id: 7, name: 'OpenAI group', platform: 'openai' }]
+  let keys: unknown[] = [{ pages: 1, items: [{ id: 12, name: 'Test key', key: 'synthetic-inference-key', group_id: 7, status: 'active' }] }]
   let release: Promise<void> | undefined
   const requested = Promise.withResolvers<undefined>()
   const detailRequested = Promise.withResolvers<undefined>()
   const groupsRequested = Promise.withResolvers<undefined>()
+  const keysRequested = Promise.withResolvers<undefined>()
   const seen: Array<{ path: string | undefined; auth: string | undefined; body: string }> = []
   const server = createServer((req, res) => { void handle(req, res).catch(() => res.destroy()) })
   async function handle(req: IncomingMessage, res: ServerResponse) {
@@ -36,10 +38,13 @@ async function fixture(wrapped = false) {
     requested.resolve(undefined)
     if (req.url === '/api/v1/auth/me') detailRequested.resolve(undefined)
     if (req.url === '/api/v1/groups/available') groupsRequested.resolve(undefined)
+    if (req.url?.startsWith('/api/v1/keys?')) keysRequested.resolve(undefined)
     if (release !== undefined) await release
     if (res.destroyed) return
     const data = req.url === '/api/v1/auth/login' ? loginResponse
-      : req.url === '/api/v1/groups/available' ? groups : { email: 'test@example.com', balance }
+      : req.url === '/api/v1/groups/available' ? groups
+        : req.url?.startsWith('/api/v1/keys?') ? keys[Number(new URL(req.url, 'http://localhost').searchParams.get('page')) - 1]
+          : { email: 'test@example.com', balance }
     res.writeHead(status, { 'content-type': 'application/json' })
     res.end(JSON.stringify(wrapped ? { code: 0, data } : data))
   }
@@ -58,11 +63,74 @@ async function fixture(wrapped = false) {
   cleanups.push(() => provider.dispose())
   await provider
   return { ctx, root, seen, provider, detailRequested: detailRequested.promise,
-    groupsRequested: groupsRequested.promise, requested: requested.promise,
+    groupsRequested: groupsRequested.promise, keysRequested: keysRequested.promise, requested: requested.promise,
     status: (value: number) => { status = value }, balance: (value: number) => { balance = value },
     loginResponse: (value: unknown) => { loginResponse = value }, hold: (value: Promise<void>) => { release = value },
-    groups: (value: unknown) => { groups = value } }
+    groups: (value: unknown) => { groups = value }, keys: (value: unknown[]) => { keys = value } }
 }
+
+const groupId = 7 as AccountGroupId
+
+it.each([false, true])('reads usable group keys across pages (wrapped=%s)', async (wrapped) => {
+  const f = await fixture(wrapped)
+  expect(await f.ctx.deepseekAccount.getGroupKeys(groupId)).toBeNull()
+  expect(f.seen).toHaveLength(0)
+  await f.ctx.deepseekAccount.signInWithPassword('test@example.com', 'synthetic-password')
+  const base = { id: 12, name: 'Same name', key: 'first-secret', group_id: 7, status: 'active' }
+  f.keys([
+    { pages: 2, items: [base,
+      { ...base, id: 13, status: 'disabled' }, { ...base, id: 14, group_id: 8 },
+      { ...base, id: 15, expires_at: '2000-01-01T00:00:00Z' },
+      { ...base, id: 16, quota: 10, quota_used: 10 }, { ...base, id: 17, group_id: null },
+    ] },
+    { pages: 2, items: [{ ...base, id: 18, key: 'second-secret', expires_at: '2999-01-01T00:00:00Z', quota: 10, quota_used: 1 }] },
+  ])
+  expect(await f.ctx.deepseekAccount.getGroupKeys(groupId)).toEqual({ status: 'ready', value: [
+    { id: 12, name: 'Same name', key: 'first-secret' }, { id: 18, name: 'Same name', key: 'second-secret' },
+  ] })
+  const requests = f.seen.filter(item => item.path?.startsWith('/api/v1/keys?'))
+  expect(requests.map(item => item.path)).toEqual([
+    '/api/v1/keys?page=1&page_size=100&group_id=7', '/api/v1/keys?page=2&page_size=100&group_id=7',
+  ])
+  expect(requests.every(item => item.auth === 'Bearer synthetic-account-token')).toBe(true)
+  f.keys([{ pages: 0, items: [] }])
+  expect(await f.ctx.deepseekAccount.getGroupKeys(groupId)).toEqual({ status: 'ready', value: [] })
+})
+
+it.each([
+  [{ pages: 1, items: [{ id: 12, name: 'Key', key: 'bad\nsecret', status: 'active' }] }],
+  [{ pages: 101, items: [] }], [{ pages: 2, items: [] }, { pages: 3, items: [] }],
+  [{ pages: 1, items: [{ id: 12, name: 'Key', key: 'secret', status: 'active', expires_at: 'invalid' }] }],
+])('rejects malformed or incomplete key listings without discarding login', async (...pages) => {
+  const f = await fixture()
+  await f.ctx.deepseekAccount.signInWithPassword('test@example.com', 'synthetic-password')
+  f.keys(pages)
+  expect(await f.ctx.deepseekAccount.getGroupKeys(groupId)).toEqual({ status: 'failed' })
+  expect((await f.ctx.deepseekAccount.getState()).status).toBe('credential-stored')
+})
+
+it('retries failed key reads and invalidates expired management credentials', async () => {
+  const f = await fixture()
+  await f.ctx.deepseekAccount.signInWithPassword('test@example.com', 'synthetic-password')
+  f.status(503)
+  expect(await f.ctx.deepseekAccount.getGroupKeys(groupId)).toEqual({ status: 'failed' })
+  f.status(200)
+  expect(await f.ctx.deepseekAccount.getGroupKeys(groupId)).toMatchObject({ status: 'ready' })
+  f.status(401)
+  expect(await f.ctx.deepseekAccount.getGroupKeys(groupId)).toBeNull()
+  expect((await f.ctx.deepseekAccount.getState()).status).toBe('signed-out')
+})
+
+it('discards key responses that arrive after sign-out', async () => {
+  const f = await fixture()
+  await f.ctx.deepseekAccount.signInWithPassword('test@example.com', 'synthetic-password')
+  const release = Promise.withResolvers<undefined>()
+  f.hold(release.promise)
+  const pending = f.ctx.deepseekAccount.getGroupKeys(groupId)
+  try { await f.keysRequested; await f.ctx.deepseekAccount.signOut(client) }
+  finally { release.resolve(undefined) }
+  expect(await pending).toBeNull()
+})
 
 it.each([false, true])('reads only display-safe available groups (wrapped=%s)', async (wrapped) => {
   const f = await fixture(wrapped)

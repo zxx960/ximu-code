@@ -136,6 +136,26 @@ export function CustomProviderCard(props: CustomProviderCardProps): ReactNode {
   const [baseURL, setBaseURL] = useState(props.initialBaseURL)
   const [protocol, setProtocol] = useState(protocols[0] ?? '')
   const [keyDraft, setKeyDraft] = useState('')
+  const loadKeys = operations.listAccountGroupKeys
+  const selectedGroupId = selectedGroup?.id
+  const [keyQuery, setKeyQuery] = useState<{
+    groupId: string
+    result: Awaited<ReturnType<NonNullable<typeof loadKeys>>>
+  }>()
+  const [keyAttempt, setKeyAttempt] = useState(0)
+  const [selectedKeyId, setSelectedKeyId] = useState('')
+  useEffect(() => {
+    if (loadKeys === undefined || selectedGroupId === undefined) return
+    let current = true
+    const settle = (result: Awaited<ReturnType<typeof loadKeys>>): void => {
+      if (current) setKeyQuery({ groupId: String(selectedGroupId), result })
+    }
+    void loadKeys(selectedGroupId).then(settle, () => { settle({ status: 'failed' }) })
+    return () => { current = false }
+  }, [loadKeys, selectedGroupId, keyAttempt])
+  const keyResult = keyQuery?.groupId === groupId ? keyQuery.result : undefined
+  const keys = keyResult?.status === 'ready' ? keyResult.value : []
+  const selectedKey = keys.find(item => String(item.id) === selectedKeyId)
   const [models, setModels] = useState<readonly ModelDraft[]>([])
   const [busy, setBusy] = useState(false)
   const [listBusy, setListBusy] = useState(false)
@@ -161,14 +181,15 @@ export function CustomProviderCard(props: CustomProviderCardProps): ReactNode {
   // fallbacks; what a route cannot default is at least one model. Every row of
   // this hand-declared route edits its reasoning levels, so they are checked too.
   const modelFailure = validateDeepSeekModels(models) ?? validateReasoningEfforts(models)
-  const keyFailure = apiKeyFailure(keyDraft)
+  const keyFailure = apiKeyFailure(loadKeys === undefined ? keyDraft : selectedKey?.key ?? '')
   // The typed key with paste whitespace removed. A blank field yields an empty
   // string, which the create path reads as "no key supplied" — a route may
   // legitimately authenticate through the provider's own ambient discovery.
-  const keyValue = keyDraft.trim()
+  const keyValue = loadKeys === undefined ? keyDraft.trim() : selectedKey?.key ?? ''
   const ready = route.length > 0 && !routeInvalid && !routeTaken
     && normalizedBaseURL.length > 0 && !baseUrlInvalid && models.length > 0 && modelFailure === undefined
     && keyFailure === undefined && (loadGroups === undefined || selectedGroup !== undefined)
+    && (loadKeys === undefined || selectedKey !== undefined)
   // The one blocked gate worth a line under the form. A satisfied card says
   // nothing at all rather than printing an empty paragraph.
   const hint = failure !== undefined || ready
@@ -181,6 +202,7 @@ export function CustomProviderCard(props: CustomProviderCardProps): ReactNode {
     // fall through to it and contradict the filled-in list right above.
     || route.length === 0 || routeInvalid || routeTaken || baseUrlInvalid
     || (loadGroups !== undefined && selectedGroup === undefined)
+    || (loadKeys !== undefined && selectedKey === undefined)
     ? undefined
     : normalizedBaseURL.length === 0
       ? t('customNeedsBaseUrl')
@@ -274,8 +296,12 @@ export function CustomProviderCard(props: CustomProviderCardProps): ReactNode {
             value={groupId}
             aria-label={t('accountGroup')}
             aria-busy={groupResult === undefined}
-            disabled={profileDisabled || groups.length === 0}
-            onChange={(event) => { setGroupId(event.target.value) }}
+            disabled={profileDisabled || listBusy || groups.length === 0}
+            onChange={(event) => {
+              setGroupId(event.target.value)
+              setSelectedKeyId('')
+              setKeyQuery(undefined)
+            }}
           >
             <option value="" disabled>{t(groupResult === undefined ? 'accountGroupsLoading' : 'accountGroupChoose')}</option>
             {groups.map(group => <option key={group.id} value={String(group.id)}>{group.name}</option>)}
@@ -286,6 +312,8 @@ export function CustomProviderCard(props: CustomProviderCardProps): ReactNode {
             <button type="button" className={styles['linkButton']} disabled={profileDisabled} onClick={() => {
               setGroupResult(undefined)
               setGroupId('')
+              setSelectedKeyId('')
+              setKeyQuery(undefined)
               setGroupAttempt(attempt => attempt + 1)
             }}>{t('retry')}</button>
           </div>}
@@ -329,14 +357,36 @@ export function CustomProviderCard(props: CustomProviderCardProps): ReactNode {
       </div>
       <div className={styles['field']}>
         <span className={styles['fieldLabel']}>{t('keyInput')}</span>
-        <ApiKeyInput
+        {loadKeys !== undefined ? <>
+          <select
+            className={`${styles['input']} ${styles['selectInput']}`}
+            value={selectedKeyId}
+            aria-label={t('keyInput')}
+            aria-busy={selectedGroup !== undefined && keyResult === undefined}
+            disabled={disabled || listBusy || selectedGroup === undefined || keys.length === 0}
+            onChange={(event) => { setSelectedKeyId(event.target.value) }}
+          >
+            <option value="" disabled>{t(selectedGroup === undefined ? 'accountKeysNeedGroup'
+              : keyResult === undefined ? 'accountKeysLoading' : 'accountKeyChoose')}</option>
+            {keys.map(item => <option key={item.id} value={String(item.id)}>{item.name ? `${item.name} (#${item.id})` : `#${item.id}`}</option>)}
+          </select>
+          {selectedGroup !== undefined && keyResult !== undefined && keys.length === 0 && <div role="status">
+            <p className={styles['error']}>{t(keyResult?.status === 'failed'
+              ? 'accountKeysFailed' : keyResult === null ? 'accountKeysSignedOut' : 'accountKeysEmpty')}</p>
+            <button type="button" className={styles['linkButton']} disabled={disabled || listBusy} onClick={() => {
+              setKeyQuery(undefined)
+              setSelectedKeyId('')
+              setKeyAttempt(attempt => attempt + 1)
+            }}>{t('retry')}</button>
+          </div>}
+        </> : <ApiKeyInput
           t={t}
           value={keyDraft}
           placeholder={t('keyPlaceholder')}
           aria-label={t('keyInput')}
           disabled={disabled}
           onChange={(event) => { setKeyDraft(event.target.value) }}
-        />
+        />}
         {/* A create card has no stored key to keep, so the blank case says
             what a blank field means here instead: this route may authenticate
             through the provider's own ambient discovery or OAuth. */}
@@ -356,7 +406,8 @@ export function CustomProviderCard(props: CustomProviderCardProps): ReactNode {
         }}
         probeBlocked={baseUrlInvalid
           ? 'customBaseUrlInvalid'
-          : keyFailure === 'keyBlank' ? 'keyBlankNew' : keyFailure}
+          : loadKeys !== undefined && selectedKey === undefined ? 'accountKeyChoose'
+            : keyFailure === 'keyBlank' ? 'keyBlankNew' : keyFailure}
         operations={operations}
         t={t}
         disabled={profileDisabled}

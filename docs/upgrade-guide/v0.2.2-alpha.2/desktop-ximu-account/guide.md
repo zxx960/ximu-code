@@ -15,6 +15,8 @@ The Desktop profile uses the Ximu management API for email/password login and re
 
 Desktop custom model APIs use a group selector in place of a manual display name. Choose a group from the signed-in account before creating a provider; its name becomes the provider display name. Existing providers keep their saved names. Group selection does not provision model keys or change the API protocol.
 
+After choosing a group, select one of its usable API keys instead of typing a key. Switching groups clears the selection. The selected secret is used for model discovery and stored only when the provider is saved; queries do not create server-side keys.
+
 1. Sign in through the Desktop email/password form. Passwords are not saved.
 2. For a private deployment, set `baseURL` under the `ximu-account` row in `$DSH_HOME/profiles/desktop/cordis.patch.yml` to its HTTPS management API root.
 3. Open Settings → Account and confirm the email and recharge balance. Independently configured model API keys remain usable; this login does not provision model keys or inference routes.

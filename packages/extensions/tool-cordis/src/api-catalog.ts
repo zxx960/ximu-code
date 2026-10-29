@@ -1017,8 +1017,8 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
   },
   {
     key: 'deepseekAccount',
-    summary: 'Account operations; only Host consumers can obtain a request credential.',
-    description: 'Account operations; only Host consumers can obtain a request credential.',
+    summary: 'Account operations; management grants and embedded-page credentials remain Host-only.',
+    description: 'Account operations; management grants and embedded-page credentials remain Host-only.',
     methods: [
       {
         signature: 'abstract getState(): Promise<AccountView>',
@@ -1031,6 +1031,12 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         description: 'Query display-safe groups without exposing management credentials.',
         parameters: [],
         returns: 'groups or a query failure; null when absent, changed, or unsupported by this provider.',
+      },
+      {
+        signature: 'getGroupKeys(_groupId: AccountGroupId): Promise<AccountGroupKeys>',
+        description: 'Query usable inference keys for an explicitly selected group.',
+        parameters: [{ name: '_groupId', description: 'group selected from the current account\'s available groups.' }],
+        returns: 'transient inference keys or a query failure; null when absent, changed, or unsupported.',
       },
       {
         signature: 'abstract getProfile(client: AccountClientMetadata): Promise<AccountDetails[\'profile\'] | null>',
@@ -5304,6 +5310,10 @@ export const EVENT_API: readonly EventApiEntry[] = [
 /** Shapes of every exported type the Service and Event signatures reference (transitively), sorted by name. */
 export const TYPE_API: readonly TypeApiEntry[] = [
   {
+    name: 'AccountApiKeyId',
+    declaration: 'export type AccountApiKeyId = BrandedNumber<\'AccountApiKeyId\'>;',
+  },
+  {
     name: 'AccountBonusBatch',
     declaration: 'export interface AccountBonusBatch {\n    readonly accountId: AccountUserId;\n    readonly bonuses: readonly AccountBonusNotification[];\n}',
   },
@@ -5330,6 +5340,14 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'AccountGroupId',
     declaration: 'export type AccountGroupId = BrandedNumber<\'AccountGroupId\'>;',
+  },
+  {
+    name: 'AccountGroupKey',
+    declaration: 'export interface AccountGroupKey {\n    readonly id: AccountApiKeyId;\n    readonly name: string;\n    readonly key: string;\n}',
+  },
+  {
+    name: 'AccountGroupKeys',
+    declaration: 'export type AccountGroupKeys = {\n    readonly status: \'ready\';\n    readonly value: readonly AccountGroupKey[];\n} | {\n    readonly status: \'failed\';\n} | null;',
   },
   {
     name: 'AccountGroups',

@@ -23,11 +23,13 @@ kind: "package-reference"
 
 基础组合包仅在桌面配置中挂载此提供方。`baseURL` 默认为 `https://codex.ximuai.com/api/v1`，`requestTimeoutMs` 默认为 30000，`maxResponseBytes` 默认为 65536。必须使用 HTTPS；显式启用的本地回环 HTTP 测试服务除外。
 
-`signInWithPassword` 提交 `POST auth/login`；`getProfile` 和 `getBalance` 共享重叠执行的 `GET auth/me` 请求，使用 `Authorization: Bearer` 鉴权。支持直接返回和成功的 `{ code: 0, data }` 包装格式。普通账号界面使用方仅接收校验后的账号和分组数据，不含凭据。
+`signInWithPassword` 提交 `POST auth/login`；`getProfile` 和 `getBalance` 共享重叠执行的 `GET auth/me` 请求，使用 `Authorization: Bearer` 鉴权。支持直接返回和成功的 `{ code: 0, data }` 包装格式。账号资料和余额结果不包含凭据。
 
 `getGroups` 使用已保存的管理令牌读取 `GET groups/available`，返回校验后的分组 ID、名称和平台名称。未登录或请求期间凭据发生变化时返回 null；查询失败返回可重试的失败状态，保留登录态。空列表属于成功结果。
 
-登录返回 HTTP 401 时报告凭据错误。`auth/me` 或 `groups/available` 返回 HTTP 401 时移除本地登录并通知会话失效；其他查询失败保留登录态，显示可重试的错误。退出登录移除本地令牌，保留独立配置的模型 API Key。取消操作阻止未完成的登录响应提交凭据；已接纳的凭据写入会在退出返回前完成。
+`getGroupKeys(groupId)` 读取 `/keys?page=1&page_size=100&group_id=…`，在一次 `requestTimeoutMs` 截止时间内读取所有分页。`maxKeyPages` 默认为 100；列表不完整、不一致或超过限制时失败，不返回部分密钥。仅返回所选分组内已启用、额度未耗尽且未到期的密钥；省略分组 ID 时按请求分组处理。显式返回值包含提供商创建草稿所用的推理密钥，不包含管理令牌。查询不会创建或保存密钥。
+
+登录返回 HTTP 401 时报告凭据错误。已认证的账号查询返回 HTTP 401 时移除本地登录并通知会话失效；其他查询失败保留登录态，显示可重试的错误。退出登录移除本地令牌，保留独立配置的模型 API Key。取消操作阻止未完成的登录响应提交凭据；已接纳的凭据写入会在退出返回前完成。
 
 <a id="model-experience"></a>
 ## 模型体验
@@ -50,7 +52,7 @@ kind: "package-reference"
 
 <a id="known-limitations-and-deferred-work"></a>
 
-- 管理接口未定义令牌刷新或服务端退出。此插件不提供分组密钥、推理路由、模型发现或在线充值页面，因此登录不会配置模型提供方。接口未提供稳定的账号 ID 或余额币种。
+- 管理接口未定义令牌刷新或服务端退出。此插件不创建密钥，也不配置推理路由、模型发现或在线充值页面。仅登录不会配置模型提供方。接口未提供稳定的账号 ID 或余额币种。
 
 <a id="dev-note"></a>
 ### 开发备注

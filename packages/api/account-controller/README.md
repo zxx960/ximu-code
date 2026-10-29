@@ -35,6 +35,8 @@ The controller forwards operations to the account service and maintains no indep
 
 `getGroups()` returns only the current account's display-safe group IDs, names, and platforms. A null result means the account is absent, changed, or does not support groups; a failed-query status permits retry. Management credentials never reach the Client.
 
+`getGroupKeys(groupId)` exposes explicitly requested inference keys for the provider-creation draft. A ready result contains key IDs, names, and secrets; consumers show only names and IDs. The same null and failed-query outcomes apply. It never returns the management token or writes credentials.
+
 <a id="further-exploration"></a>
 ## Further Exploration
 
