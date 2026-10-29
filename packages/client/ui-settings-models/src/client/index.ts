@@ -65,7 +65,7 @@ export function refreshIfLoaded(controller: ModelsSettingsStore): void {
  * constrained; registration depends on each slot through `slots.inject()`.
  */
 export const inject = [
-  'slots', 'locale', 'remote', 'remote.credentials', 'remote.llm', 'remote.settings', 'remote.session',
+  'slots', 'locale', 'remote', 'remote.credentials', 'remote.llm', 'remote.settings', 'remote.session', 'remote.account',
   'configForms', 'settingsSchema',
 ]
 
@@ -85,7 +85,7 @@ export function apply(ctx: ClientContext): void {
   const schema = createSettingsSchemaOperations(ctx.settingsSchema)
   // Bound once here, where the Remote namespaces are declared in this plugin's
   // own `inject`; the cards receive callbacks and never a context.
-  const operations = createModelsOperations(ctx)
+  const operations = createModelsOperations(ctx, configured.accountGroups)
   const controller = new ModelsSettingsStore(ctx, schema, ctx.configForms.describe(), configured.hiddenProviders)
   // Registration-time text (the nav label thunk) and the inject faces share
   // one bound translate; copy freshness rides the locale revision.

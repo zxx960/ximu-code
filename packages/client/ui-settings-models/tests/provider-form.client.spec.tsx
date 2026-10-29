@@ -22,6 +22,7 @@ import { settingsSchema } from './settings-schema.client.ts'
 afterEach(cleanup)
 
 const t: ModelsSectionInjected['t'] = key => en[key]
+type GroupId = Extract<Awaited<ReturnType<NonNullable<ModelsOperations['listAccountGroups']>>>, { status: 'ready' }>['value'][number]['id']
 
 const PROTOCOLS = ['openai-completions', 'openai-responses', 'anthropic-messages']
 const LEVELS = ['off', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max']
@@ -962,6 +963,14 @@ describe('provider rows', () => {
 })
 
 describe('hand-declared providers', () => {
+  it('queries groups only when enabled and turns Remote failures into a safe query status', async () => {
+    const getGroups = vi.fn(async () => remoteFail('private Host diagnostics'))
+    const ctx = ctxWith({ account: { getGroups } })
+    expect(createModelsOperations(ctx).listAccountGroups).toBeUndefined()
+    expect(getGroups).not.toHaveBeenCalled()
+    expect(await createModelsOperations(ctx, true).listAccountGroups?.()).toEqual({ status: 'failed' })
+  })
+
   it('opens with an editable default API address and preserves edits across form changes', () => {
     mountCard({ automaticId: true, initialBaseURL: 'https://codex.ximuai.com' })
     const address = screen.getByLabelText<HTMLInputElement>(en.baseUrl)
@@ -1018,6 +1027,7 @@ describe('hand-declared providers', () => {
   function mountCard(
     overrides: Partial<Parameters<typeof CustomProviderCard>[0]> = {},
     wire: Parameters<typeof scriptedFace>[0] = {},
+    listAccountGroups?: ModelsOperations['listAccountGroups'],
   ) {
     const scripted = scriptedFace(wire)
     const onClose = vi.fn()
@@ -1029,7 +1039,7 @@ describe('hand-declared providers', () => {
         protocols={PROTOCOLS}
         reasoningLevels={LEVELS}
         revision={7}
-        operations={operationsWith(scripted.face)}
+        operations={{ ...operationsWith(scripted.face), ...listAccountGroups === undefined ? {} : { listAccountGroups } }}
         t={t}
         readOnly={false}
         onClose={onClose}
@@ -1038,6 +1048,65 @@ describe('hand-declared providers', () => {
     )
     return { ...scripted, onClose }
   }
+
+  it('loads account groups and saves the chosen group name as the display name', async () => {
+    const pending = Promise.withResolvers<Awaited<ReturnType<NonNullable<ModelsOperations['listAccountGroups']>>>>()
+    const load = vi.fn(() => pending.promise)
+    const { mutate, onClose } = mountCard({ automaticId: true, initialBaseURL: 'https://codex.ximuai.com' }, {}, load)
+    const select = screen.getByRole<HTMLSelectElement>('combobox', { name: en.accountGroup })
+    expect(select.disabled).toBe(true)
+    expect(select.getAttribute('aria-busy')).toBe('true')
+    expect(screen.queryByRole('textbox', { name: en.customDisplayName })).toBeNull()
+    const groups = { status: 'ready' as const, value: [
+      { id: 7 as GroupId, name: 'OpenAI group', platform: 'openai' },
+      { id: 8 as GroupId, name: 'Claude group', platform: 'anthropic' },
+    ] }
+    await act(async () => { pending.resolve(groups) })
+    expect([...select.options].map(option => [option.value, option.textContent])).toEqual([
+      ['', en.accountGroupChoose], ['7', 'OpenAI group'], ['8', 'Claude group'],
+    ])
+    expect(select.value).toBe('')
+    fireEvent.click(screen.getByRole('button', { name: en.addModel }))
+    fireEvent.change(screen.getByLabelText(`${en.modelId} 1`), { target: { value: 'example-model' } })
+    expect(buttonNamed(en.create).disabled).toBe(true)
+    fireEvent.change(select, { target: { value: '8' } })
+    expect(buttonNamed(en.create).disabled).toBe(false)
+    await expect(`${document.body.textContent}\n`).toMatchFileSnapshot('./expected/account-group-provider.txt')
+    fireEvent.click(buttonNamed(en.create))
+    await waitFor(() => { expect(onClose).toHaveBeenCalledWith(true) })
+    expect(firstMutate(mutate).ops[0]?.value).toMatchObject({ displayName: 'Claude group', baseURL: 'https://codex.ximuai.com' })
+    expect(load).toHaveBeenCalledOnce()
+  })
+
+  it.each([
+    [{ status: 'failed' as const }, en.accountGroupsFailed],
+    [{ status: 'ready' as const, value: [] }, en.accountGroupsEmpty],
+    [null, en.accountGroupsSignedOut],
+  ])('keeps creation blocked until a retry finds an available group (%s)', async (result, message) => {
+    const load = vi.fn<NonNullable<ModelsOperations['listAccountGroups']>>()
+      .mockResolvedValueOnce(result).mockResolvedValueOnce({ status: 'ready', value: [{ id: 7 as GroupId, name: 'Group', platform: 'openai' }] })
+    mountCard({ automaticId: true }, {}, load)
+    await screen.findByText(message)
+    expect(screen.getByRole<HTMLSelectElement>('combobox', { name: en.accountGroup }).disabled).toBe(true)
+    expect(buttonNamed(en.create).disabled).toBe(true)
+    fireEvent.click(screen.getByRole('button', { name: en.retry }))
+    await screen.findByRole('option', { name: 'Group' })
+    expect(load).toHaveBeenCalledTimes(2)
+    expect(screen.queryByText(message)).toBeNull()
+  })
+
+  it('reports a rejected group query and stops accepting its result after the form closes', async () => {
+    const pending = Promise.withResolvers<null>()
+    const load = vi.fn<NonNullable<ModelsOperations['listAccountGroups']>>()
+      .mockRejectedValueOnce(new Error('private transport diagnostics')).mockReturnValueOnce(pending.promise)
+    mountCard({ automaticId: true }, {}, load)
+    await screen.findByText(en.accountGroupsFailed)
+    expect(document.body.textContent).not.toContain('private transport diagnostics')
+    fireEvent.click(screen.getByRole('button', { name: en.retry }))
+    cleanup()
+    await act(async () => { pending.resolve(null) })
+    expect(document.body.textContent).toBe('')
+  })
 
   it('creates a custom provider without changing the default model', async () => {
     const { face, mutate, set, onClose } = mountCard()

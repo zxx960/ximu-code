@@ -14,6 +14,8 @@ export interface Config {
   automaticProviderIds: boolean
   /** Initial editable API address in new custom-provider forms. */
   customProviderBaseURL: string
+  /** Choose custom-provider display names from the signed-in account's groups. */
+  accountGroups: boolean
 }
 
 /** Validate Host configuration and its public page-bootstrap payload. */
@@ -23,6 +25,7 @@ export const Config: z<Partial<Config>, Config> = z.object({
   providerCatalog: z.boolean().default(true),
   automaticProviderIds: z.boolean().default(false),
   customProviderBaseURL: z.string().default(''),
+  accountGroups: z.boolean().default(false),
 })
 
 /** Page-global key carrying public Models settings and onboarding options. */

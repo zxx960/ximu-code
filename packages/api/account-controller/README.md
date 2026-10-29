@@ -33,6 +33,8 @@ Every operation that reaches Platform takes the calling UI's `AccountClientMetad
 
 The controller forwards operations to the account service and maintains no independent account state.
 
+`getGroups()` returns only the current account's display-safe group IDs, names, and platforms. A null result means the account is absent, changed, or does not support groups; a failed-query status permits retry. Management credentials never reach the Client.
+
 <a id="further-exploration"></a>
 ## Further Exploration
 

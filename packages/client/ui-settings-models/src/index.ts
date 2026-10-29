@@ -21,6 +21,7 @@ export function apply(ctx: Context, config: Config): void {
         providerCatalog: config.providerCatalog,
         automaticProviderIds: config.automaticProviderIds,
         customProviderBaseURL: config.customProviderBaseURL,
+        accountGroups: config.accountGroups,
       },
     })
   })

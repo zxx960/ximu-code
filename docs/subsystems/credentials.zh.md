@@ -64,6 +64,8 @@ AccountDetails.balance 将充值钱包投影为 value、赠送钱包投影为 bo
 
 密码账号提供方通过 `AccountView.loginMethod: password` 标识登录方式，并通过 `signInWithPassword` 接收临时邮箱密码输入。[西牧提供方](../../packages/credentials/account-ximu/README.zh.md)的管理接口未提供币种，因此返回的充值余额不包含 `AccountWallet.currency`，界面不显示货币符号。管理令牌仅保留在 Host，不用于推理或内嵌 Platform 页面鉴权。
 
+`AccountGroups` 将当前账号的可用分组投影为包含 `AccountGroup` 数组的 `ready`、可重试查询失败时的 `failed`，或在账号缺失、变化、不支持分组时返回 null。每个条目包含带品牌的数值 `AccountGroupId`、名称和平台；管理凭据仅供 Host 使用。不支持分组的提供方，其 `getGroups()` 默认返回 null。
+
 <!-- BEGIN GENERATED cordis-surface (gen-cordis-catalog.ts) — do not edit between markers -->
 
 <a id="cordis-surface"></a>
@@ -275,6 +277,12 @@ Account operations; only Host consumers can obtain a request credential.
  * @returns a snapshot without credentials or PKCE secrets.
  */
 abstract getState(): Promise<AccountView>
+
+/**
+ * Query display-safe groups without exposing management credentials.
+ * @returns groups or a query failure; null when absent, changed, or unsupported by this provider.
+ */
+getGroups(): Promise<AccountGroups>
 
 /**
  * Query Platform profile independently of wallet balances.

@@ -3,7 +3,7 @@ import { Context } from '@deepseek-ai/cordis'
 import { Remote, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
 import { isRunningAccountTask } from '@deepseek-ai/dsh-deepseek-account'
 import type {} from '@deepseek-ai/dsh-agent'
-import type { AccountBonusBatch, AccountBonusOrderId, AccountClientMetadata, AccountDetails, AccountUserId } from '@deepseek-ai/dsh-deepseek-account/types'
+import type { AccountBonusBatch, AccountBonusOrderId, AccountClientMetadata, AccountDetails, AccountGroups, AccountUserId } from '@deepseek-ai/dsh-deepseek-account/types'
 import type { AccountView, SignInAttemptId } from './types.ts'
 
 /** Account commands and reconnect-safe state stream. */
@@ -17,6 +17,12 @@ export class AccountController extends TypertRemoteService {
    */
   @Remote
   getState(): Promise<AccountView> { return this.ctx.deepseekAccount.getState() }
+  /**
+   * Query the current account's available groups without credentials.
+   * @returns safe groups, a query failure, or null when absent, changed, or unsupported.
+   */
+  @Remote
+  getGroups(): Promise<AccountGroups> { return this.ctx.deepseekAccount.getGroups() }
   /**
    * Query display-safe Platform profile data.
    * @param client - identity of the requesting UI; the Host derives Platform request headers from it.

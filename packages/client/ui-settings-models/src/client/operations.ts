@@ -8,7 +8,7 @@
 import type { Context as ClientContext } from '@deepseek-ai/cordis'
 import type {
   LlmDiscoveredModel, LlmModelDiscoveryRequest,
-  SettingsNamespaceView, SettingsPathOpView,
+  SettingsNamespaceView, SettingsPathOpView, ClientRemote,
 } from '@deepseek-ai/dsh-api-remotes/client'
 
 /** What one namespace write answered. */
@@ -30,8 +30,16 @@ export type ModelDiscoveryOutcome =
   /** The interrogation was refused, with the Host's own diagnostic. */
   | { readonly kind: 'refused'; readonly message: string }
 
+/** Account query data inferred from the generated Remote response. */
+type AccountGroupsOutcome = Extract<Awaited<ReturnType<ClientRemote['account']['getGroups']>>, { ok: true }>['value']
+
 /** The Host operations the Models page and its cards invoke. */
 export interface ModelsOperations {
+  /**
+   * Query the signed-in account's display-safe groups; omitted for manual names.
+   * @returns ready groups, a query failure, or null when the account is unavailable.
+   */
+  listAccountGroups?: () => Promise<AccountGroupsOutcome>
   /**
    * Store one credential literal under its reference.
    * @param ref - credential reference name.
@@ -70,11 +78,16 @@ export interface ModelsOperations {
 /**
  * Bind the page's Host operations to the plugin's own Remote namespaces.
  * @param ctx - the page plugin's context, which declares `remote.credentials`,
- * `remote.llm`, and `remote.settings` in its own `inject`.
+ * `remote.llm`, `remote.settings`, and `remote.account` in its own `inject`.
+ * @param accountGroups - offer account group selection instead of manual display names.
  * @returns the callbacks the section and its cards are injected with.
  */
-export function createModelsOperations(ctx: ClientContext): ModelsOperations {
+export function createModelsOperations(ctx: ClientContext, accountGroups = false): ModelsOperations {
   return {
+    ...accountGroups ? { listAccountGroups: async (): Promise<AccountGroupsOutcome> => {
+      const response = await ctx.remote.account.getGroups()
+      return response.ok ? response.value : { status: 'failed' }
+    } } : {},
     storeCredential: async (ref, value) => {
       const response = await ctx.remote.credentials.set(ref, value)
       return response.ok ? undefined : response.error.message

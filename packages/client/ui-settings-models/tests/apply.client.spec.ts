@@ -51,6 +51,7 @@ async function bench(mock = RemoteMock.create().load(remoteDefaultResponses), se
     },
     settings: mock.remote.settings,
     session: { initializeDefaultModel: vi.fn(async () => ({ ok: true, value: undefined })) },
+    account: { getGroups: vi.fn(async () => ({ ok: true, value: { status: 'ready', value: [] } })) },
   })
   await ctx.plugin({ inject: [...settingsInject], apply: settingsApply }).await()
   return { ctx, slots: ctx.get('slots') as SlotRegistry, locale, remote }
@@ -81,7 +82,7 @@ describe('ui-settings-models apply', () => {
       expect(rows).toEqual([{
         kind: 'global', name: ONBOARDING_CONFIG_GLOBAL,
         value: {
-          credentialOnboarding: false, hiddenProviders: [], providerCatalog: true, automaticProviderIds: false, customProviderBaseURL: '',
+          credentialOnboarding: false, hiddenProviders: [], providerCatalog: true, automaticProviderIds: false, customProviderBaseURL: '', accountGroups: false,
         },
       }])
       for (const row of rows) if (row.kind === 'global') vi.stubGlobal(row.name, row.value)
@@ -104,13 +105,14 @@ describe('ui-settings-models apply', () => {
 
   it('defaults to browser onboarding and rejects malformed bootstrap options', async () => {
     expect(hostPlugin.Config({})).toEqual({
-      credentialOnboarding: true, hiddenProviders: [], providerCatalog: true, automaticProviderIds: false, customProviderBaseURL: '',
+      credentialOnboarding: true, hiddenProviders: [], providerCatalog: true, automaticProviderIds: false, customProviderBaseURL: '', accountGroups: false,
     })
     expect(hostPlugin.Config['~standard'].validate({ credentialOnboarding: 'false' })).toHaveProperty('issues')
     expect(hostPlugin.Config['~standard'].validate({ hiddenProviders: 'deepseek-official' })).toHaveProperty('issues')
     expect(hostPlugin.Config['~standard'].validate({ providerCatalog: 'false' })).toHaveProperty('issues')
     expect(hostPlugin.Config['~standard'].validate({ automaticProviderIds: 'true' })).toHaveProperty('issues')
     expect(hostPlugin.Config['~standard'].validate({ customProviderBaseURL: 1 })).toHaveProperty('issues')
+    expect(hostPlugin.Config['~standard'].validate({ accountGroups: 'true' })).toHaveProperty('issues')
     const { ctx } = await bench()
     try {
       vi.stubGlobal(ONBOARDING_CONFIG_GLOBAL, { credentialOnboarding: 'false' })
@@ -120,9 +122,23 @@ describe('ui-settings-models apply', () => {
     }
   })
 
+  it('offers group queries when enabled by the Host bootstrap', async () => {
+    const { ctx, slots } = await bench()
+    declare(slots)
+    const host = ctx.plugin(hostPlugin, { accountGroups: true })
+    await host.await()
+    const rows: IndexInjection[] = []
+    ctx.emit('webserver/index-inject', rows, PAGE_PEER)
+    for (const row of rows) if (row.kind === 'global') vi.stubGlobal(row.name, row.value)
+    await ctx.plugin({ inject: [...inject], apply }).await()
+    const entry = slots.entries('settings.section')[0]!
+    const face = (entry.inject as () => { operations: { listAccountGroups?: () => Promise<unknown> } })()
+    expect(await face.operations.listAccountGroups?.()).toEqual({ status: 'ready', value: [] })
+  })
+
   it('declares the services it uses', () => {
     expect(inject).toEqual([
-      'slots', 'locale', 'remote', 'remote.credentials', 'remote.llm', 'remote.settings', 'remote.session',
+      'slots', 'locale', 'remote', 'remote.credentials', 'remote.llm', 'remote.settings', 'remote.session', 'remote.account',
       'configForms', 'settingsSchema',
     ])
   })

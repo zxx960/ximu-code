@@ -38,6 +38,8 @@ getUnnotifiedBonuses 返回平台尚未记录为已展示的赠金及其所属�
 
 `AccountProfile.avatarUrl` 是可选的账号头像 URL；为空或缺失时表示没有头像。
 
+`getGroups()` 返回可供界面显示的账号分组、查询失败状态，或在未登录、查询期间账号变化、不支持分组时返回 null。分组 ID 与推理提供商 ID 不同。管理令牌仅供 Host 使用。
+
 该服务定义账号操作和可重连的状态快照。平台提供者负责协议和授权记录。凭证仅限 Host；API 控制器只导出状态与操作，不导出 resolveToken。
 
 账号模型请求以 `ACCOUNT_SIGN_IN_REQUIRED` 失败时，发出 `deepseek-account/model-sign-in-required`，Client 接收该实时事件以提示登录。其他请求错误不触发此事件。

@@ -1,7 +1,7 @@
 /** Account Service Definition shared by platform, API, and model consumers. */
 import { Context, Service } from '@deepseek-ai/cordis'
-import type { AccountBonusBatch, AccountBonusOrderId, AccountClientMetadata, AccountDetails, AccountUserId, AccountView, SignInAttemptId } from './types.ts'
-export type { AccountBonusBatch, AccountBonusNotification, AccountBonusOrderId, AccountClientMetadata, AccountDetails, AccountProfile, AccountUserId, AccountWallet, AccountLinks, AccountView, SignInAttemptId, SignInAttemptView, SignInErrorCode } from './types.ts'
+import type { AccountBonusBatch, AccountBonusOrderId, AccountClientMetadata, AccountDetails, AccountGroups, AccountUserId, AccountView, SignInAttemptId } from './types.ts'
+export type { AccountBonusBatch, AccountBonusNotification, AccountBonusOrderId, AccountClientMetadata, AccountDetails, AccountGroup, AccountGroupId, AccountGroups, AccountProfile, AccountUserId, AccountWallet, AccountLinks, AccountView, SignInAttemptId, SignInAttemptView, SignInErrorCode } from './types.ts'
 export { isRunningAccountTask, installAccountTaskCancellation } from './account-tasks.ts'
 
 declare module '@deepseek-ai/cordis' {
@@ -37,6 +37,11 @@ export abstract class DeepSeekAccount extends Service {
    * @returns a snapshot without credentials or PKCE secrets.
    */
   abstract getState(): Promise<AccountView>
+  /**
+   * Query display-safe groups without exposing management credentials.
+   * @returns groups or a query failure; null when absent, changed, or unsupported by this provider.
+   */
+  getGroups(): Promise<AccountGroups> { return Promise.resolve(null) }
   /**
    * Query Platform profile independently of wallet balances.
    * A ready result whose stable profile ID first becomes available or changes notifies identity-enabled watch

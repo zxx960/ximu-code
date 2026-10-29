@@ -116,7 +116,23 @@ export function CustomProviderCard(props: CustomProviderCardProps): ReactNode {
   // The write is checked against the revision on which this draft was opened.
   const [openedAt] = useState(() => props.revision)
   const [route, setRoute] = useState(() => props.automaticId ? generateProviderId(taken) : '')
-  const [displayName, setDisplayName] = useState('')
+  const [manualName, setDisplayName] = useState('')
+  const loadGroups = operations.listAccountGroups
+  const [groupResult, setGroupResult] = useState<Awaited<ReturnType<NonNullable<typeof loadGroups>>> | undefined>()
+  const [groupAttempt, setGroupAttempt] = useState(0)
+  const [groupId, setGroupId] = useState('')
+  useEffect(() => {
+    if (loadGroups === undefined) return
+    let current = true
+    void loadGroups().then(
+      (result) => { if (current) setGroupResult(result) },
+      () => { if (current) setGroupResult({ status: 'failed' }) },
+    )
+    return () => { current = false }
+  }, [loadGroups, groupAttempt])
+  const groups = groupResult?.status === 'ready' ? groupResult.value : []
+  const selectedGroup = groups.find(group => String(group.id) === groupId)
+  const displayName = loadGroups === undefined ? manualName : selectedGroup?.name ?? ''
   const [baseURL, setBaseURL] = useState(props.initialBaseURL)
   const [protocol, setProtocol] = useState(protocols[0] ?? '')
   const [keyDraft, setKeyDraft] = useState('')
@@ -152,7 +168,7 @@ export function CustomProviderCard(props: CustomProviderCardProps): ReactNode {
   const keyValue = keyDraft.trim()
   const ready = route.length > 0 && !routeInvalid && !routeTaken
     && normalizedBaseURL.length > 0 && !baseUrlInvalid && models.length > 0 && modelFailure === undefined
-    && keyFailure === undefined
+    && keyFailure === undefined && (loadGroups === undefined || selectedGroup !== undefined)
   // The one blocked gate worth a line under the form. A satisfied card says
   // nothing at all rather than printing an empty paragraph.
   const hint = failure !== undefined || ready
@@ -164,6 +180,7 @@ export function CustomProviderCard(props: CustomProviderCardProps): ReactNode {
     // fallback arm below reads "no models yet", so an unmet route gate would
     // fall through to it and contradict the filled-in list right above.
     || route.length === 0 || routeInvalid || routeTaken || baseUrlInvalid
+    || (loadGroups !== undefined && selectedGroup === undefined)
     ? undefined
     : normalizedBaseURL.length === 0
       ? t('customNeedsBaseUrl')
@@ -250,8 +267,29 @@ export function CustomProviderCard(props: CustomProviderCardProps): ReactNode {
           : <p className={styles['advancedHint']}>{t('customRouteHint')}</p>}
       </>}
       <div className={styles['field']}>
-        <span className={styles['fieldLabel']}>{t('customDisplayName')}</span>
-        <input
+        <span className={styles['fieldLabel']}>{t(loadGroups === undefined ? 'customDisplayName' : 'accountGroup')}</span>
+        {loadGroups !== undefined ? <>
+          <select
+            className={`${styles['input']} ${styles['selectInput']}`}
+            value={groupId}
+            aria-label={t('accountGroup')}
+            aria-busy={groupResult === undefined}
+            disabled={profileDisabled || groups.length === 0}
+            onChange={(event) => { setGroupId(event.target.value) }}
+          >
+            <option value="" disabled>{t(groupResult === undefined ? 'accountGroupsLoading' : 'accountGroupChoose')}</option>
+            {groups.map(group => <option key={group.id} value={String(group.id)}>{group.name}</option>)}
+          </select>
+          {groupResult !== undefined && groups.length === 0 && <div role="status">
+            <p className={styles['error']}>{t(groupResult?.status === 'failed'
+              ? 'accountGroupsFailed' : groupResult === null ? 'accountGroupsSignedOut' : 'accountGroupsEmpty')}</p>
+            <button type="button" className={styles['linkButton']} disabled={profileDisabled} onClick={() => {
+              setGroupResult(undefined)
+              setGroupId('')
+              setGroupAttempt(attempt => attempt + 1)
+            }}>{t('retry')}</button>
+          </div>}
+        </> : <input
           className={styles['input']}
           type="text"
           value={displayName}
@@ -259,7 +297,7 @@ export function CustomProviderCard(props: CustomProviderCardProps): ReactNode {
           aria-label={t('customDisplayName')}
           disabled={profileDisabled}
           onChange={(event) => { setDisplayName(event.target.value) }}
-        />
+        />}
       </div>
       <div className={styles['field']}>
         <span className={styles['fieldLabel']}>{t('baseUrl')}</span>

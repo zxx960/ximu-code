@@ -22,9 +22,11 @@ async function fixture(wrapped = false) {
   let status = 200
   let balance = 12.34
   let loginResponse: unknown = { access_token: 'synthetic-account-token' }
+  let groups: unknown = [{ id: 7, name: 'OpenAI group', platform: 'openai' }]
   let release: Promise<void> | undefined
   const requested = Promise.withResolvers<undefined>()
   const detailRequested = Promise.withResolvers<undefined>()
+  const groupsRequested = Promise.withResolvers<undefined>()
   const seen: Array<{ path: string | undefined; auth: string | undefined; body: string }> = []
   const server = createServer((req, res) => { void handle(req, res).catch(() => res.destroy()) })
   async function handle(req: IncomingMessage, res: ServerResponse) {
@@ -33,9 +35,11 @@ async function fixture(wrapped = false) {
     seen.push({ path: req.url, auth: req.headers.authorization, body })
     requested.resolve(undefined)
     if (req.url === '/api/v1/auth/me') detailRequested.resolve(undefined)
+    if (req.url === '/api/v1/groups/available') groupsRequested.resolve(undefined)
     if (release !== undefined) await release
     if (res.destroyed) return
-    const data = req.url === '/api/v1/auth/login' ? loginResponse : { email: 'test@example.com', balance }
+    const data = req.url === '/api/v1/auth/login' ? loginResponse
+      : req.url === '/api/v1/groups/available' ? groups : { email: 'test@example.com', balance }
     res.writeHead(status, { 'content-type': 'application/json' })
     res.end(JSON.stringify(wrapped ? { code: 0, data } : data))
   }
@@ -53,10 +57,79 @@ async function fixture(wrapped = false) {
   const provider = ctx.plugin(XimuAccount, { baseURL: `http://127.0.0.1:${address.port}/api/v1`, allowLoopbackHttp: true })
   cleanups.push(() => provider.dispose())
   await provider
-  return { ctx, root, seen, provider, detailRequested: detailRequested.promise, requested: requested.promise,
+  return { ctx, root, seen, provider, detailRequested: detailRequested.promise,
+    groupsRequested: groupsRequested.promise, requested: requested.promise,
     status: (value: number) => { status = value }, balance: (value: number) => { balance = value },
-    loginResponse: (value: unknown) => { loginResponse = value }, hold: (value: Promise<void>) => { release = value } }
+    loginResponse: (value: unknown) => { loginResponse = value }, hold: (value: Promise<void>) => { release = value },
+    groups: (value: unknown) => { groups = value } }
 }
+
+it.each([false, true])('reads only display-safe available groups (wrapped=%s)', async (wrapped) => {
+  const f = await fixture(wrapped)
+  expect(await f.ctx.deepseekAccount.getGroups()).toBeNull()
+  expect(f.seen).toHaveLength(0)
+  await f.ctx.deepseekAccount.signInWithPassword('test@example.com', 'synthetic-password')
+  f.groups([{ id: 7, name: 'OpenAI group', platform: 'openai', secret: 'private' }])
+  expect(await f.ctx.deepseekAccount.getGroups()).toEqual({ status: 'ready', value: [{ id: 7, name: 'OpenAI group', platform: 'openai' }] })
+  expect(f.seen.at(-1)).toMatchObject({ path: '/api/v1/groups/available', auth: 'Bearer synthetic-account-token' })
+  f.groups([])
+  expect(await f.ctx.deepseekAccount.getGroups()).toEqual({ status: 'ready', value: [] })
+})
+
+it.each([
+  {}, [{ id: 0, name: 'bad', platform: 'openai' }], [{ id: 7, name: ' ', platform: 'openai' }],
+  [{ id: 7, name: 'A', platform: 'openai' }, { id: 7, name: 'B', platform: 'openai' }],
+])('reports malformed groups without clearing the login', async (value) => {
+  const f = await fixture()
+  await f.ctx.deepseekAccount.signInWithPassword('test@example.com', 'synthetic-password')
+  f.groups(value)
+  expect(await f.ctx.deepseekAccount.getGroups()).toEqual({ status: 'failed' })
+  expect((await f.ctx.deepseekAccount.getState()).status).toBe('credential-stored')
+})
+
+it('permits group-query retry and clears an expired login', async () => {
+  const f = await fixture()
+  await f.ctx.deepseekAccount.signInWithPassword('test@example.com', 'synthetic-password')
+  f.status(503)
+  expect(await f.ctx.deepseekAccount.getGroups()).toEqual({ status: 'failed' })
+  f.status(200)
+  expect(await f.ctx.deepseekAccount.getGroups()).toMatchObject({ status: 'ready' })
+  const expired = vi.fn()
+  f.ctx.on('deepseek-account/session-expired', expired)
+  f.status(401)
+  expect(await f.ctx.deepseekAccount.getGroups()).toBeNull()
+  expect((await f.ctx.deepseekAccount.getState()).status).toBe('signed-out')
+  expect(expired).toHaveBeenCalledOnce()
+})
+
+it('discards groups that arrive after sign-out', async () => {
+  const f = await fixture()
+  await f.ctx.deepseekAccount.signInWithPassword('test@example.com', 'synthetic-password')
+  const release = Promise.withResolvers<undefined>()
+  f.hold(release.promise)
+  const pending = f.ctx.deepseekAccount.getGroups()
+  try {
+    await f.groupsRequested
+    await f.ctx.deepseekAccount.signOut(client)
+  } finally { release.resolve(undefined) }
+  expect(await pending).toBeNull()
+})
+
+it('publishes one expiry notification when account and group reads both return 401', async () => {
+  const f = await fixture()
+  await f.ctx.deepseekAccount.signInWithPassword('test@example.com', 'synthetic-password')
+  const expired = vi.fn()
+  f.ctx.on('deepseek-account/session-expired', expired)
+  const release = Promise.withResolvers<undefined>()
+  f.status(401)
+  f.hold(release.promise)
+  const balance = f.ctx.deepseekAccount.getBalance(client)
+  const groups = f.ctx.deepseekAccount.getGroups()
+  try { await Promise.all([f.detailRequested, f.groupsRequested]) }
+  finally { release.resolve(undefined) }
+  expect(await Promise.all([balance, groups])).toEqual([null, null])
+  expect(expired).toHaveBeenCalledOnce()
+})
 
 it.each([false, true])('signs in and reads a currency-free recharge balance (wrapped=%s)', async (wrapped) => {
   const f = await fixture(wrapped)

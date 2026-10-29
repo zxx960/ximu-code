@@ -1,0 +1,1 @@
+GroupChoose a groupOpenAI groupClaude groupBase URLAPI protocolOpenAI Chat CompletionsOpenAI ResponsesAnthropic MessagesAPI keyModelsFetch available modelsAdd modelCancelCreate provider

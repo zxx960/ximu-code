@@ -41,6 +41,8 @@ Host 配置 `credentialOnboarding` 默认为 `true`。Electron preload 标记会
 
 ### API 密钥
 
+`accountGroups` 将自定义提供商的显示名称输入框替换为下拉框，选项来自当前登录账号的可用分组。桌面端启用此选项，浏览器配置保留手动名称。创建提供商前必须选择分组，所选名称保存为 `displayName`。加载失败、未登录或分组列表为空时阻止创建，并提供重试操作。选择分组不会配置 API Key，也不会改变协议。
+
 `customProviderBaseURL` 在打开自定义提供商表单时预填可编辑的 API 地址。桌面端默认为 `https://codex.ximuai.com`，浏览器配置默认为空。修改或清空地址后，草稿会保留到表单关闭；创建提供商时保存当前输入值。
 
 `automaticProviderIds` 为每个自定义 API 表单自动生成唯一的内部标识，不显示 Provider ID 输入框。桌面端启用此选项，浏览器配置默认手动填写。配置保存后，标识保持不变，密钥写入失败后重试也沿用原标识。已有提供商标识保持不变。

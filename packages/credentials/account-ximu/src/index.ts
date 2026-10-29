@@ -5,11 +5,16 @@ import { Context, Service } from '@deepseek-ai/cordis'
 import Schema from '@deepseek-ai/schemastery'
 import { z } from 'zod'
 import { credentialKey } from '@deepseek-ai/dsh-credentials'
-import { DeepSeekAccount, type AccountDetails, type AccountView, type SignInAttemptView, type SignInAttemptId, type SignInErrorCode } from '@deepseek-ai/dsh-deepseek-account'
+import { DeepSeekAccount, type AccountDetails, type AccountGroupId, type AccountGroups, type AccountView, type SignInAttemptView, type SignInAttemptId, type SignInErrorCode } from '@deepseek-ai/dsh-deepseek-account'
 
 const KEY = credentialKey('account-ximu', 'default')
 const grant = z.object({ version: z.literal(1), issuer: z.url(), token: z.string().regex(/^[\x21-\x7e]+$/) })
 const account = z.object({ email: z.email(), balance: z.number() })
+const groups = z.array(z.object({
+  id: z.number().int().positive().transform(id => id as AccountGroupId),
+  name: z.string().trim().min(1),
+  platform: z.string().min(1),
+})).refine(value => new Set(value.map(group => group.id)).size === value.length)
 
 /** Ximu management API and bounded request settings. */
 export interface Config {
@@ -161,6 +166,28 @@ export class XimuAccount extends DeepSeekAccount {
     } catch { return { status: 'failed' } }
   }
 
+  override async getGroups(): Promise<AccountGroups> {
+    const generation = this.generation
+    let token: string | undefined
+    try {
+      token = (await this.readGrant())?.token
+      if (token === undefined || generation !== this.generation || this.lifetime.signal.aborted) return null
+      const result = groups.safeParse(await this.request('groups/available', {
+        headers: { authorization: `Bearer ${token}` },
+      }, this.lifetime.signal))
+      if (!result.success) throw new AccountError('protocol')
+      this.lifetime.signal.throwIfAborted()
+      return generation === this.generation ? { status: 'ready', value: result.data } : null
+    } catch (error) {
+      if (generation !== this.generation || this.lifetime.signal.aborted) return null
+      if (error instanceof AccountError && error.code === 'expired' && token !== undefined) {
+        await this.expireGrant(token, generation)
+        return null
+      }
+      return { status: 'failed' }
+    }
+  }
+
   override getUnnotifiedBonuses(): Promise<null> { return Promise.resolve(null) }
   override ackBonusNotified(): Promise<boolean> { return Promise.resolve(false) }
   override resolveToken(): Promise<undefined> { return Promise.resolve(undefined) }
@@ -210,14 +237,18 @@ export class XimuAccount extends DeepSeekAccount {
       } catch (error) {
         if (generation !== this.generation || this.lifetime.signal.aborted) return null
         if (!(error instanceof AccountError) || error.code !== 'expired') throw error
-        if ((await this.readGrant())?.token !== stored.token || generation !== this.generation) return null
-        await this.signOut()
-        this.ctx.emit('deepseek-account/session-expired')
+        await this.expireGrant(stored.token, generation)
         return null
       }
     })().finally(() => { if (this.detail === pending) this.detail = undefined })
     this.detail = pending
     return pending.promise
+  }
+
+  private async expireGrant(token: string, generation: number): Promise<void> {
+    if ((await this.readGrant())?.token !== token || generation !== this.generation || this.removing !== undefined) return
+    await this.signOut()
+    this.ctx.emit('deepseek-account/session-expired')
   }
 
   private request(path: string, init: RequestInit, signal: AbortSignal, login = false): Promise<unknown> {

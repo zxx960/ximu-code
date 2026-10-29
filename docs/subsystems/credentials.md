@@ -64,6 +64,8 @@ Bonus notification queries return an AccountBonusBatch with the current Platform
 
 Password account providers expose `AccountView.loginMethod: password` and accept transient email/password input through `signInWithPassword`. The [Ximu provider](../../packages/credentials/account-ximu/README.md) returns recharge balances without `AccountWallet.currency` because its management API supplies no currency; UI consumers omit the currency symbol. Management tokens remain Host-only and do not authenticate inference or embedded Platform pages.
 
+`AccountGroups` projects the current account's available groups as `ready` with an array of `AccountGroup` entries, `failed` for a retryable query failure, or null for an absent, changed, or unsupported account. Each entry contains a branded numeric `AccountGroupId`, name, and platform; management credentials remain Host-only. `getGroups()` defaults to null for providers without group support.
+
 <!-- BEGIN GENERATED cordis-surface (gen-cordis-catalog.ts) — do not edit between markers -->
 
 <a id="cordis-surface"></a>
@@ -275,6 +277,12 @@ Account operations; only Host consumers can obtain a request credential.
  * @returns a snapshot without credentials or PKCE secrets.
  */
 abstract getState(): Promise<AccountView>
+
+/**
+ * Query display-safe groups without exposing management credentials.
+ * @returns groups or a query failure; null when absent, changed, or unsupported by this provider.
+ */
+getGroups(): Promise<AccountGroups>
 
 /**
  * Query Platform profile independently of wallet balances.

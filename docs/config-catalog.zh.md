@@ -17,7 +17,7 @@
 ## `@deepseek-ai/dsh-account-ximu`
 
 - `inject`: `credentials`
-- `source`: [`packages/credentials/account-ximu/src/index.ts:15`](../packages/credentials/account-ximu/src/index.ts)
+- `source`: [`packages/credentials/account-ximu/src/index.ts:20`](../packages/credentials/account-ximu/src/index.ts)
 
 ```ts config-catalog
 /** Ximu management API and bounded request settings. */
@@ -669,6 +669,8 @@ export interface Config {
   automaticProviderIds: boolean
   /** Initial editable API address in new custom-provider forms. */
   customProviderBaseURL: string
+  /** Choose custom-provider display names from the signed-in account's groups. */
+  accountGroups: boolean
 }
 ```
 <!-- END GENERATED config-catalog:@deepseek-ai/dsh-client-ui-settings-models -->

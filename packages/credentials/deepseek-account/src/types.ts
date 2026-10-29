@@ -1,6 +1,6 @@
 /** Client-supplied request identity and client-safe account state; credentials never cross this projection. */
 import type {} from '@deepseek-ai/cordis'
-import type { Branded } from '@deepseek-ai/dsh-brand'
+import type { Branded, BrandedNumber } from '@deepseek-ai/dsh-brand'
 import type { JsonValue } from '@deepseek-ai/dsh-util-values'
 
 /** Identity of the requesting UI for one account operation; the Host derives Platform request headers from it. */
@@ -14,6 +14,17 @@ export interface AccountClientMetadata {
 
 /** Identity of one local login attempt, unrelated to the platform request ID. */
 export type SignInAttemptId = Branded<'SignInAttemptId'>
+/** Management API group identity; unrelated to provider route IDs. */
+export type AccountGroupId = BrandedNumber<'AccountGroupId'>
+/** Display-safe group available to the signed-in account. */
+export interface AccountGroup {
+  readonly id: AccountGroupId
+  readonly name: string
+  readonly platform: string
+}
+/** Group query outcome; null indicates an absent or changed account, or unsupported groups. */
+export type AccountGroups = { readonly status: 'ready'; readonly value: readonly AccountGroup[] }
+  | { readonly status: 'failed' } | null
 /**
  * Safe failure codes rendered through the caller's locale dictionary.
  * `no-response`: fetch returned no Response; `network`: HTTP or account-detail retrieval failure.

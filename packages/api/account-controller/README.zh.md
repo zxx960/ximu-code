@@ -33,6 +33,8 @@ account 命名空间提供 getState、getProfile / getBalance、getUnnotifiedBon
 
 控制器向账号服务转发操作，不维护独立的账号状态。
 
+`getGroups()` 仅返回当前账号可供界面显示的分组 ID、名称和平台。账号缺失、已切换或不支持分组时返回 null；查询失败状态允许重试。管理凭据不会传给 Client。
+
 <a id="further-exploration"></a>
 ## 深入探索
 

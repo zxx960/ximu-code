@@ -23,9 +23,11 @@ The Desktop profile signs in with email and password through the Ximu management
 
 The base bundle mounts this provider only for the Desktop profile. `baseURL` defaults to `https://codex.ximuai.com/api/v1`; `requestTimeoutMs` defaults to 30000 and `maxResponseBytes` to 65536. HTTPS is required except for explicitly enabled loopback HTTP test fixtures.
 
-`signInWithPassword` submits `POST auth/login`; `getProfile` and `getBalance` share an overlapping `GET auth/me` request authenticated with `Authorization: Bearer`. Both direct responses and successful `{ code: 0, data }` envelopes are accepted. Only email, numeric balance, and safe status codes reach ordinary account UI consumers.
+`signInWithPassword` submits `POST auth/login`; `getProfile` and `getBalance` share an overlapping `GET auth/me` request authenticated with `Authorization: Bearer`. Both direct responses and successful `{ code: 0, data }` envelopes are accepted. Ordinary account UI consumers receive only validated account and group data, without credentials.
 
-HTTP 401 on login reports invalid credentials. HTTP 401 on `auth/me` removes the local login and publishes session expiry; other query failures retain the login and display a retryable failure. Sign-out removes the local token and retains independently configured model API keys. Cancellation prevents pending login responses from committing; an admitted credential write finishes before sign-out returns.
+`getGroups` reads `GET groups/available` using the stored management token and returns validated group IDs, names, and platform names. The result is null when signed out or when credentials change during the request; a failed query returns a retryable failure without discarding the login. Empty lists are successful results.
+
+HTTP 401 on login reports invalid credentials. HTTP 401 on `auth/me` or `groups/available` removes the local login and publishes session expiry; other query failures retain the login and display a retryable failure. Sign-out removes the local token and retains independently configured model API keys. Cancellation prevents pending login responses from committing; an admitted credential write finishes before sign-out returns.
 
 <a id="model-experience"></a>
 ## Model Experience

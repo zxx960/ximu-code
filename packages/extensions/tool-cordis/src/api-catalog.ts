@@ -1027,6 +1027,12 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         returns: 'a snapshot without credentials or PKCE secrets.',
       },
       {
+        signature: 'getGroups(): Promise<AccountGroups>',
+        description: 'Query display-safe groups without exposing management credentials.',
+        parameters: [],
+        returns: 'groups or a query failure; null when absent, changed, or unsupported by this provider.',
+      },
+      {
         signature: 'abstract getProfile(client: AccountClientMetadata): Promise<AccountDetails[\'profile\'] | null>',
         description: 'Query Platform profile independently of wallet balances. A ready result whose stable profile ID first becomes available or changes notifies identity-enabled watch consumers, so they re-read getPlatformSession; repeated IDs stay silent.',
         parameters: [{ name: 'client', description: 'identity of the requesting UI for this call.' }],
@@ -5316,6 +5322,18 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'AccountDetails',
     declaration: 'export interface AccountDetails {\n    readonly profile: {\n        readonly status: \'ready\';\n        readonly value: AccountProfile;\n    } | {\n        readonly status: \'failed\';\n    };\n    readonly balance: {\n        readonly status: \'ready\';\n        readonly value: readonly AccountWallet[];\n        readonly bonusWallets: readonly AccountWallet[];\n    } | {\n        readonly status: \'failed\';\n    };\n}',
+  },
+  {
+    name: 'AccountGroup',
+    declaration: 'export interface AccountGroup {\n    readonly id: AccountGroupId;\n    readonly name: string;\n    readonly platform: string;\n}',
+  },
+  {
+    name: 'AccountGroupId',
+    declaration: 'export type AccountGroupId = BrandedNumber<\'AccountGroupId\'>;',
+  },
+  {
+    name: 'AccountGroups',
+    declaration: 'export type AccountGroups = {\n    readonly status: \'ready\';\n    readonly value: readonly AccountGroup[];\n} | {\n    readonly status: \'failed\';\n} | null;',
   },
   {
     name: 'AccountLinks',

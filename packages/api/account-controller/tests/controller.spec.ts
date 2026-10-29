@@ -16,6 +16,7 @@ function fixture() {
   roots.push(ctx)
   const provider = {
     getState: vi.fn<DeepSeekAccount['getState']>().mockResolvedValue(state),
+    getGroups: vi.fn<DeepSeekAccount['getGroups']>().mockResolvedValue(null),
     getProfile: vi.fn<DeepSeekAccount['getProfile']>().mockResolvedValue({ status: 'failed' }),
     getBalance: vi.fn<DeepSeekAccount['getBalance']>().mockResolvedValue(null),
     getUnnotifiedBonuses: vi.fn<DeepSeekAccount['getUnnotifiedBonuses']>().mockResolvedValue(null),
@@ -33,6 +34,8 @@ function fixture() {
 it('delegates account operations without coupling profile and balance queries', async () => {
   const { provider, controller } = fixture()
   expect(await controller.getState()).toBe(state)
+  expect(await controller.getGroups()).toBeNull()
+  expect(provider.getGroups).toHaveBeenCalledExactlyOnceWith()
   expect(await controller.getProfile(client)).toEqual({ status: 'failed' })
   expect(provider.getBalance).not.toHaveBeenCalled()
   expect(await controller.getBalance(client)).toBeNull()

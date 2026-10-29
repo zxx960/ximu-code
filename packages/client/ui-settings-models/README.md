@@ -41,6 +41,8 @@ Host configuration `credentialOnboarding` defaults to `true`. The Electron prelo
 
 ### API keys
 
+`accountGroups` replaces the custom-provider display-name input with a select populated from the signed-in account's available groups. Desktop enables it; browser profiles keep manual names. Creating a provider requires a group selection and saves its name as `displayName`. Loading failures, an absent login, and an empty group list keep creation blocked with a retry action. Group selection does not configure an API key or change the protocol.
+
 `customProviderBaseURL` seeds the editable API address when a custom-provider form opens. Desktop defaults to `https://codex.ximuai.com`; browser profiles start blank. Editing or clearing the address is preserved until the form closes, and creating a provider saves the current input value.
 
 `automaticProviderIds` generates an internal unique ID for each custom API form instead of showing a Provider ID input. Desktop enables it; browser profiles default to manual IDs. The ID stays fixed after the profile is saved, including retries of a failed key write. Existing provider IDs are retained.
