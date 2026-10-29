@@ -8,12 +8,15 @@ export interface Config {
   credentialOnboarding: boolean
   /** Provider IDs omitted from Models settings, including the add-provider catalog. */
   hiddenProviders: string[]
+  /** Offer the built-in third-party provider catalog when adding a model provider. */
+  providerCatalog: boolean
 }
 
 /** Validate Host configuration and its public page-bootstrap payload. */
 export const Config: z<Partial<Config>, Config> = z.object({
   credentialOnboarding: z.boolean().default(true),
   hiddenProviders: z.array(z.string()).default([]),
+  providerCatalog: z.boolean().default(true),
 })
 
 /** Page-global key carrying public Models settings and onboarding options. */

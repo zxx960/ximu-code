@@ -313,7 +313,9 @@ function cardSeatCalls(
     ])
 }
 
-async function mountFace(scripted: ReturnType<typeof scriptedFace>, hiddenProviders: readonly string[] = []) {
+async function mountFace(
+  scripted: ReturnType<typeof scriptedFace>, hiddenProviders: readonly string[] = [], providerCatalog = true,
+) {
   const { face, update, mutate, set, unset } = scripted
   const ctx = ctxWith(face)
   const mirror = new SettingsDescribeMirror(ctx)
@@ -321,6 +323,7 @@ async function mountFace(scripted: ReturnType<typeof scriptedFace>, hiddenProvid
   await controller.load()
   const renderSlot = stubRenderSlot()
   const injected: ModelsSectionProps = {
+    providerCatalog,
     controller,
     useSnapshot: bindSnapshotSelector(controller.store),
     operations: operationsWith(face),
@@ -361,6 +364,19 @@ async function mountDeepSeekCard(overrides: Parameters<typeof scriptedFace>[0] =
 }
 
 describe('ModelsSection', () => {
+  it('opens only the custom API form when the provider catalog is disabled', async () => {
+    const { view } = await mountFace(scriptedFace({}), ['deepseek-official'], false)
+    fireEvent.click(screen.getByRole('button', { name: en.add }))
+    expect(screen.queryByRole('tab', { name: en.addCatalog })).toBeNull()
+    expect(screen.queryByText(en.addCatalogHint)).toBeNull()
+    expect(screen.queryByLabelText(en.provider)).toBeNull()
+    expect(screen.getByLabelText(en.customRoute)).toBeTruthy()
+    await expect(`${view.container.textContent}\n`).toMatchFileSnapshot('./expected/custom-only-add-provider.txt')
+    fireEvent.click(screen.getByRole('button', { name: en.cancel }))
+    fireEvent.click(screen.getByRole('button', { name: en.add }))
+    expect(screen.getByLabelText<HTMLInputElement>(en.customRoute).value).toBe('')
+  })
+
   it('omits the hidden official card and its add-provider entry while keeping other providers', async () => {
     const { view } = await mountFace(scriptedFace({}), ['deepseek-official'])
     expect(screen.queryByText('DeepSeek', { exact: true })).toBeNull()
@@ -399,6 +415,7 @@ describe('ModelsSection', () => {
       await act(async () => { refreshing = controller.load(); await started.promise })
       expect(controller.store.getSnapshot().namespaces.get('llm-deepseek')?.revision).toBe(0)
       render(<ModelsSection
+        providerCatalog
         controller={controller}
         useSnapshot={bindSnapshotSelector(controller.store)}
         operations={operationsWith(face)}
@@ -760,6 +777,7 @@ describe('ModelsSection', () => {
     const controller = new ModelsSettingsStore(ctxWith(face), settingsSchema, new SettingsDescribeMirror(ctxWith(face)))
     await controller.load()
     render(<ModelsSection
+      providerCatalog
       controller={controller}
       useSnapshot={bindSnapshotSelector(controller.store)}
       operations={operationsWith(face)}
@@ -785,6 +803,7 @@ describe('ModelsSection', () => {
     await controller.load()
     cleanup()
     render(<ModelsSection
+      providerCatalog
       controller={controller}
       useSnapshot={bindSnapshotSelector(controller.store)}
       operations={operationsWith(face)}
@@ -1592,6 +1611,7 @@ describe('ModelsSection', () => {
     const controller = new ModelsSettingsStore(ctxWith(face), settingsSchema, new SettingsDescribeMirror(ctxWith(face)))
     await controller.load()
     render(<ModelsSection
+      providerCatalog
       controller={controller}
       useSnapshot={bindSnapshotSelector(controller.store)}
       operations={operationsWith(face)}
@@ -1715,6 +1735,7 @@ describe('ModelsSection', () => {
       ctxWith(face.face), settingsSchema, new SettingsDescribeMirror(ctxWith(face.face)))
     await controller.load()
     render(<ModelsSection
+      providerCatalog
       controller={controller}
       useSnapshot={bindSnapshotSelector(controller.store)}
       operations={operationsWith(face.face)}
@@ -1738,6 +1759,7 @@ describe('ModelsSection', () => {
     await controller.load()
     cleanup()
     render(<ModelsSection
+      providerCatalog
       controller={controller}
       useSnapshot={bindSnapshotSelector(controller.store)}
       operations={operationsWith(face)}
@@ -2061,6 +2083,7 @@ describe('ModelsSection', () => {
     const { face } = scriptedFace()
     const controller = new ModelsSettingsStore(ctxWith(face), settingsSchema, new SettingsDescribeMirror(ctxWith(face)))
     render(<ModelsSection
+      providerCatalog
       controller={controller}
       useSnapshot={bindSnapshotSelector(controller.store)}
       operations={operationsWith(face)}

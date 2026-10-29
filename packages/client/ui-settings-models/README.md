@@ -41,6 +41,8 @@ Host configuration `credentialOnboarding` defaults to `true`. The Electron prelo
 
 ### API keys
 
+`providerCatalog` controls the third-party provider catalog in the add-provider card. It defaults to `true`; Desktop sets it to `false` and opens the custom model API form directly. Existing provider rows remain editable.
+
 `hiddenProviders` omits matching provider IDs from Models settings and its add-provider catalog. The Desktop profile sets it to `["deepseek-official"]`, so the built-in DeepSeek API-key card is absent. Browser profiles default to an empty list. This setting does not delete saved credentials or change inference routes.
 
 API-key inputs start empty and use `autocomplete="new-password"` to ask browsers not to autofill saved login passwords. A nonempty draft has the same eye control as masked conversation text: **Show secret** reveals the current input and **Hide secret** masks it. Changing or clearing the input masks it again. Stored credentials are never read into the input.

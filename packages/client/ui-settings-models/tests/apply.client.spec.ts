@@ -80,7 +80,7 @@ describe('ui-settings-models apply', () => {
       ctx.emit('webserver/index-inject', rows, PAGE_PEER)
       expect(rows).toEqual([{
         kind: 'global', name: ONBOARDING_CONFIG_GLOBAL,
-        value: { credentialOnboarding: false, hiddenProviders: [] },
+        value: { credentialOnboarding: false, hiddenProviders: [], providerCatalog: true },
       }])
       for (const row of rows) if (row.kind === 'global') vi.stubGlobal(row.name, row.value)
       const plugin = ctx.plugin({ inject: [...inject], apply })
@@ -101,9 +101,10 @@ describe('ui-settings-models apply', () => {
   })
 
   it('defaults to browser onboarding and rejects malformed bootstrap options', async () => {
-    expect(hostPlugin.Config({})).toEqual({ credentialOnboarding: true, hiddenProviders: [] })
+    expect(hostPlugin.Config({})).toEqual({ credentialOnboarding: true, hiddenProviders: [], providerCatalog: true })
     expect(hostPlugin.Config['~standard'].validate({ credentialOnboarding: 'false' })).toHaveProperty('issues')
     expect(hostPlugin.Config['~standard'].validate({ hiddenProviders: 'deepseek-official' })).toHaveProperty('issues')
+    expect(hostPlugin.Config['~standard'].validate({ providerCatalog: 'false' })).toHaveProperty('issues')
     const { ctx } = await bench()
     try {
       vi.stubGlobal(ONBOARDING_CONFIG_GLOBAL, { credentialOnboarding: 'false' })

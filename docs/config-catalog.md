@@ -661,6 +661,8 @@ export interface Config {
   credentialOnboarding: boolean
   /** Provider IDs omitted from Models settings, including the add-provider catalog. */
   hiddenProviders: string[]
+  /** Offer the built-in third-party provider catalog when adding a model provider. */
+  providerCatalog: boolean
 }
 ```
 <!-- END GENERATED config-catalog:@deepseek-ai/dsh-client-ui-settings-models -->
