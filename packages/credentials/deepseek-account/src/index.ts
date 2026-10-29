@@ -1,9 +1,9 @@
 /** Account Service Definition shared by platform, API, and model consumers. */
 import { Context, Service } from '@deepseek-ai/cordis'
-import type { AccountBonusBatch, AccountBonusOrderId, AccountClientMetadata, AccountDetails, AccountGroupId, AccountGroupKeys, AccountGroups, AccountUserId, AccountView, SignInAttemptId } from './types.ts'
+import type { AccountBonusBatch, AccountBonusOrderId, AccountClientMetadata, AccountDetails, AccountGroupId, AccountGroupKeys, AccountGroups, AccountKeyCreation, AccountUserId, AccountView, SignInAttemptId } from './types.ts'
 export type { AccountBonusBatch, AccountBonusNotification, AccountBonusOrderId, AccountClientMetadata, AccountDetails, AccountGroup, AccountGroupId, AccountGroups, AccountProfile, AccountUserId, AccountWallet, AccountLinks, AccountView, SignInAttemptId, SignInAttemptView, SignInErrorCode } from './types.ts'
 export { isRunningAccountTask, installAccountTaskCancellation } from './account-tasks.ts'
-export type { AccountApiKeyId, AccountGroupKey, AccountGroupKeys } from './types.ts'
+export type { AccountApiKeyId, AccountGroupKey, AccountGroupKeys, AccountKeyCreation } from './types.ts'
 
 declare module '@deepseek-ai/cordis' {
   interface Events {
@@ -49,6 +49,12 @@ export abstract class DeepSeekAccount extends Service {
    * @returns transient inference keys or a query failure; null when absent, changed, or unsupported.
    */
   getGroupKeys(_groupId: AccountGroupId): Promise<AccountGroupKeys> { return Promise.resolve(null) }
+  /**
+   * Create one inference key only after an explicit user action.
+   * @param _groupId - selected account group.
+   * @returns created identity, definite refusal, or unknown outcome; null when absent, unsupported, or authorization is rejected.
+   */
+  createGroupKey(_groupId: AccountGroupId): Promise<AccountKeyCreation> { return Promise.resolve(null) }
   /**
    * Query Platform profile independently of wallet balances.
    * A ready result whose stable profile ID first becomes available or changes notifies identity-enabled watch

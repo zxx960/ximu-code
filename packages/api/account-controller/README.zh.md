@@ -37,6 +37,8 @@ account 命名空间提供 getState、getProfile / getBalance、getUnnotifiedBon
 
 `getGroupKeys(groupId)` 为提供商创建草稿返回显式请求的推理密钥。成功结果包含密钥 ID、名称和原文；使用方只显示名称与 ID。同样采用 null 和查询失败状态。此操作不会返回管理令牌，也不会写入凭据。
 
+`createGroupKey(groupId)` 仅在显式用户操作后创建密钥，返回不含原文的标识。它区分明确拒绝和无法确认的写入结果；结果未知时，调用方应先刷新列表，再决定是否再次创建。此操作不会保存本地凭据，也不会重试创建。
+
 <a id="further-exploration"></a>
 ## 深入探索
 

@@ -1039,6 +1039,12 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         returns: 'transient inference keys or a query failure; null when absent, changed, or unsupported.',
       },
       {
+        signature: 'createGroupKey(_groupId: AccountGroupId): Promise<AccountKeyCreation>',
+        description: 'Create one inference key only after an explicit user action.',
+        parameters: [{ name: '_groupId', description: 'selected account group.' }],
+        returns: 'created identity, definite refusal, or unknown outcome; null when absent, unsupported, or authorization is rejected.',
+      },
+      {
         signature: 'abstract getProfile(client: AccountClientMetadata): Promise<AccountDetails[\'profile\'] | null>',
         description: 'Query Platform profile independently of wallet balances. A ready result whose stable profile ID first becomes available or changes notifies identity-enabled watch consumers, so they re-read getPlatformSession; repeated IDs stay silent.',
         parameters: [{ name: 'client', description: 'identity of the requesting UI for this call.' }],
@@ -5352,6 +5358,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'AccountGroups',
     declaration: 'export type AccountGroups = {\n    readonly status: \'ready\';\n    readonly value: readonly AccountGroup[];\n} | {\n    readonly status: \'failed\';\n} | null;',
+  },
+  {
+    name: 'AccountKeyCreation',
+    declaration: 'export type AccountKeyCreation = {\n    readonly status: \'created\';\n    readonly id: AccountApiKeyId;\n} | {\n    readonly status: \'failed\' | \'unknown\';\n} | null;',
   },
   {
     name: 'AccountLinks',

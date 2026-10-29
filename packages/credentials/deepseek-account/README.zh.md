@@ -42,6 +42,8 @@ getUnnotifiedBonuses 返回平台尚未记录为已展示的赠金及其所属�
 
 `getGroupKeys(groupId)` 显式查询所选分组的可用推理密钥。成功结果包含配置草稿所用的密钥 ID、名称和推理密钥原文；失败结果不包含密钥，账号缺失、变化或不支持时返回 null。使用方只显示 ID 和名称，并通过凭据保存选中的密钥，不将原文写入设置或日志。
 
+`createGroupKey(groupId)` 必须由显式用户操作触发，返回 `AccountKeyCreation`：已创建的 ID、明确失败、需要刷新列表确认的未知结果，或在账号缺失、不支持或认证被拒绝时返回 null。创建结果不包含密钥原文。不支持创建密钥的提供方返回 null。
+
 该服务定义账号操作和可重连的状态快照。平台提供者负责协议和授权记录。凭证仅限 Host；API 控制器只导出状态与操作，不导出 resolveToken。
 
 账号模型请求以 `ACCOUNT_SIGN_IN_REQUIRED` 失败时，发出 `deepseek-account/model-sign-in-required`，Client 接收该实时事件以提示登录。其他请求错误不触发此事件。

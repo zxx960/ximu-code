@@ -18,6 +18,7 @@ function fixture() {
     getState: vi.fn<DeepSeekAccount['getState']>().mockResolvedValue(state),
     getGroups: vi.fn<DeepSeekAccount['getGroups']>().mockResolvedValue(null),
     getGroupKeys: vi.fn<DeepSeekAccount['getGroupKeys']>().mockResolvedValue(null),
+    createGroupKey: vi.fn<DeepSeekAccount['createGroupKey']>().mockResolvedValue(null),
     getProfile: vi.fn<DeepSeekAccount['getProfile']>().mockResolvedValue({ status: 'failed' }),
     getBalance: vi.fn<DeepSeekAccount['getBalance']>().mockResolvedValue(null),
     getUnnotifiedBonuses: vi.fn<DeepSeekAccount['getUnnotifiedBonuses']>().mockResolvedValue(null),
@@ -39,6 +40,8 @@ it('delegates account operations without coupling profile and balance queries', 
   expect(provider.getGroups).toHaveBeenCalledExactlyOnceWith()
   expect(await controller.getGroupKeys(7 as AccountGroupId)).toBeNull()
   expect(provider.getGroupKeys).toHaveBeenCalledExactlyOnceWith(7 as AccountGroupId)
+  expect(await controller.createGroupKey(7 as AccountGroupId)).toBeNull()
+  expect(provider.createGroupKey).toHaveBeenCalledExactlyOnceWith(7 as AccountGroupId)
   expect(await controller.getProfile(client)).toEqual({ status: 'failed' })
   expect(provider.getBalance).not.toHaveBeenCalled()
   expect(await controller.getBalance(client)).toBeNull()

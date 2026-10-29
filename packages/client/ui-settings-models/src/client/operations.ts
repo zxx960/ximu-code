@@ -34,6 +34,8 @@ export type ModelDiscoveryOutcome =
 type AccountGroupsOutcome = Extract<Awaited<ReturnType<ClientRemote['account']['getGroups']>>, { ok: true }>['value']
 type AccountKeysQuery = ClientRemote['account']['getGroupKeys']
 type AccountKeysOutcome = Extract<Awaited<ReturnType<AccountKeysQuery>>, { ok: true }>['value']
+type AccountKeyCreate = ClientRemote['account']['createGroupKey']
+type AccountKeyCreateOutcome = Extract<Awaited<ReturnType<AccountKeyCreate>>, { ok: true }>['value']
 
 /** The Host operations the Models page and its cards invoke. */
 export interface ModelsOperations {
@@ -48,6 +50,12 @@ export interface ModelsOperations {
    * @returns transient keys for the draft, a query failure, or null when the account is unavailable.
    */
   listAccountGroupKeys?: (groupId: Parameters<AccountKeysQuery>[0]) => Promise<AccountKeysOutcome>
+  /**
+   * Create a group key only in response to a user click.
+   * @param groupId - selected group with no usable keys.
+   * @returns the creation result; transport failure leaves the outcome unknown.
+   */
+  createAccountGroupKey?: (groupId: Parameters<AccountKeyCreate>[0]) => Promise<AccountKeyCreateOutcome>
   /**
    * Store one credential literal under its reference.
    * @param ref - credential reference name.
@@ -98,6 +106,9 @@ export function createModelsOperations(ctx: ClientContext, accountGroups = false
     }, listAccountGroupKeys: async (groupId): Promise<AccountKeysOutcome> => {
       const response = await ctx.remote.account.getGroupKeys(groupId)
       return response.ok ? response.value : { status: 'failed' }
+    }, createAccountGroupKey: async (groupId): Promise<AccountKeyCreateOutcome> => {
+      const response = await ctx.remote.account.createGroupKey(groupId)
+      return response.ok ? response.value : { status: 'unknown' }
     } } : {},
     storeCredential: async (ref, value) => {
       const response = await ctx.remote.credentials.set(ref, value)

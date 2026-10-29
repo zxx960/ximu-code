@@ -24,11 +24,13 @@ async function fixture(wrapped = false) {
   let loginResponse: unknown = { access_token: 'synthetic-account-token' }
   let groups: unknown = [{ id: 7, name: 'OpenAI group', platform: 'openai' }]
   let keys: unknown[] = [{ pages: 1, items: [{ id: 12, name: 'Test key', key: 'synthetic-inference-key', group_id: 7, status: 'active' }] }]
+  let created: unknown = { id: 13, name: '西牧ai', key: 'synthetic-created-key', group_id: 7, status: 'active' }
   let release: Promise<void> | undefined
   const requested = Promise.withResolvers<undefined>()
   const detailRequested = Promise.withResolvers<undefined>()
   const groupsRequested = Promise.withResolvers<undefined>()
   const keysRequested = Promise.withResolvers<undefined>()
+  const createRequested = Promise.withResolvers<undefined>()
   const seen: Array<{ path: string | undefined; auth: string | undefined; body: string }> = []
   const server = createServer((req, res) => { void handle(req, res).catch(() => res.destroy()) })
   async function handle(req: IncomingMessage, res: ServerResponse) {
@@ -39,12 +41,14 @@ async function fixture(wrapped = false) {
     if (req.url === '/api/v1/auth/me') detailRequested.resolve(undefined)
     if (req.url === '/api/v1/groups/available') groupsRequested.resolve(undefined)
     if (req.url?.startsWith('/api/v1/keys?')) keysRequested.resolve(undefined)
+    if (req.url === '/api/v1/keys' && req.method === 'POST') createRequested.resolve(undefined)
     if (release !== undefined) await release
     if (res.destroyed) return
     const data = req.url === '/api/v1/auth/login' ? loginResponse
       : req.url === '/api/v1/groups/available' ? groups
         : req.url?.startsWith('/api/v1/keys?') ? keys[Number(new URL(req.url, 'http://localhost').searchParams.get('page')) - 1]
-          : { email: 'test@example.com', balance }
+          : req.url === '/api/v1/keys' && req.method === 'POST' ? created : { email: 'test@example.com', balance }
+    if (req.url === '/api/v1/keys' && req.method === 'POST' && status === 200) keys = [{ pages: 1, items: [created] }]
     res.writeHead(status, { 'content-type': 'application/json' })
     res.end(JSON.stringify(wrapped ? { code: 0, data } : data))
   }
@@ -63,13 +67,83 @@ async function fixture(wrapped = false) {
   cleanups.push(() => provider.dispose())
   await provider
   return { ctx, root, seen, provider, detailRequested: detailRequested.promise,
-    groupsRequested: groupsRequested.promise, keysRequested: keysRequested.promise, requested: requested.promise,
+    groupsRequested: groupsRequested.promise, keysRequested: keysRequested.promise,
+    createRequested: createRequested.promise, requested: requested.promise,
     status: (value: number) => { status = value }, balance: (value: number) => { balance = value },
     loginResponse: (value: unknown) => { loginResponse = value }, hold: (value: Promise<void>) => { release = value },
-    groups: (value: unknown) => { groups = value }, keys: (value: unknown[]) => { keys = value } }
+    groups: (value: unknown) => { groups = value }, keys: (value: unknown[]) => { keys = value },
+    created: (value: unknown) => { created = value } }
 }
 
 const groupId = 7 as AccountGroupId
+
+it.each([false, true])('creates a group key explicitly and exposes it on a subsequent list query (wrapped=%s)', async (wrapped) => {
+  const f = await fixture(wrapped)
+  expect(await f.ctx.deepseekAccount.createGroupKey(groupId)).toBeNull()
+  expect(f.seen).toHaveLength(0)
+  await f.ctx.deepseekAccount.signInWithPassword('test@example.com', 'synthetic-password')
+  expect(await f.ctx.deepseekAccount.createGroupKey(groupId)).toEqual({ status: 'created', id: 13 })
+  const request = f.seen.find(item => item.path === '/api/v1/keys')!
+  expect(request.auth).toBe('Bearer synthetic-account-token')
+  expect(JSON.parse(request.body)).toEqual({ name: '西牧ai', group_id: 7 })
+  expect(await f.ctx.deepseekAccount.getGroupKeys(groupId)).toEqual({ status: 'ready', value: [
+    { id: 13, name: '西牧ai', key: 'synthetic-created-key' },
+  ] })
+})
+
+it('coalesces concurrent creation clicks without submitting a second POST', async () => {
+  const f = await fixture()
+  await f.ctx.deepseekAccount.signInWithPassword('test@example.com', 'synthetic-password')
+  const release = Promise.withResolvers<undefined>()
+  f.hold(release.promise)
+  const first = f.ctx.deepseekAccount.createGroupKey(groupId)
+  expect(f.ctx.deepseekAccount.createGroupKey(groupId)).toBe(first)
+  try {
+    await f.createRequested
+    expect(await f.ctx.deepseekAccount.createGroupKey(8 as AccountGroupId)).toEqual({ status: 'failed' })
+  } finally { release.resolve(undefined) }
+  expect(await first).toEqual({ status: 'created', id: 13 })
+  expect(f.seen.filter(item => item.path === '/api/v1/keys')).toHaveLength(1)
+})
+
+it.each([[400, 'failed'], [403, 'failed'], [500, 'unknown'], [408, 'unknown']])(
+  'distinguishes rejected and uncertain key creation (HTTP %s)', async (status, result) => {
+    const f = await fixture()
+    await f.ctx.deepseekAccount.signInWithPassword('test@example.com', 'synthetic-password')
+    f.status(status)
+    expect(await f.ctx.deepseekAccount.createGroupKey(groupId)).toEqual({ status: result })
+    expect(f.seen.filter(item => item.path === '/api/v1/keys')).toHaveLength(1)
+  },
+)
+
+it('reports an unknown outcome if a successful POST returns an invalid response', async () => {
+  const f = await fixture()
+  await f.ctx.deepseekAccount.signInWithPassword('test@example.com', 'synthetic-password')
+  f.created({})
+  expect(await f.ctx.deepseekAccount.createGroupKey(groupId)).toEqual({ status: 'unknown' })
+})
+
+it('reports the in-flight mutation as unknown after sign-out', async () => {
+  const f = await fixture()
+  await f.ctx.deepseekAccount.signInWithPassword('test@example.com', 'synthetic-password')
+  const release = Promise.withResolvers<undefined>()
+  f.hold(release.promise)
+  const pending = f.ctx.deepseekAccount.createGroupKey(groupId)
+  try {
+    await f.createRequested
+    await f.ctx.deepseekAccount.signOut(client)
+  } finally { release.resolve(undefined) }
+  expect(await pending).toEqual({ status: 'unknown' })
+  expect((await f.ctx.deepseekAccount.getState()).status).toBe('signed-out')
+})
+
+it('invalidates an expired management grant when key creation is rejected with 401', async () => {
+  const f = await fixture()
+  await f.ctx.deepseekAccount.signInWithPassword('test@example.com', 'synthetic-password')
+  f.status(401)
+  expect(await f.ctx.deepseekAccount.createGroupKey(groupId)).toBeNull()
+  expect((await f.ctx.deepseekAccount.getState()).status).toBe('signed-out')
+})
 
 it.each([false, true])('reads usable group keys across pages (wrapped=%s)', async (wrapped) => {
   const f = await fixture(wrapped)

@@ -37,6 +37,8 @@ The controller forwards operations to the account service and maintains no indep
 
 `getGroupKeys(groupId)` exposes explicitly requested inference keys for the provider-creation draft. A ready result contains key IDs, names, and secrets; consumers show only names and IDs. The same null and failed-query outcomes apply. It never returns the management token or writes credentials.
 
+`createGroupKey(groupId)` creates a key only after an explicit user action and returns its identity without secrets. It distinguishes a definite refusal from an unknown mutation outcome; callers refresh the list before attempting another creation after an unknown result. It does not store local credentials or retry creation.
+
 <a id="further-exploration"></a>
 ## Further Exploration
 

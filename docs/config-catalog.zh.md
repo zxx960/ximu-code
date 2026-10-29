@@ -30,6 +30,8 @@ export interface Config {
   maxResponseBytes?: number
   /** Maximum pages admitted for one complete group-key query. */
   maxKeyPages?: number
+  /** Name assigned to a key created by an explicit user action. */
+  keyName?: string
   /** Permit loopback HTTP for local API fixtures only. */
   allowLoopbackHttp?: boolean
 }

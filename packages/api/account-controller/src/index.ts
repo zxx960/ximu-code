@@ -4,7 +4,7 @@ import { Remote, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
 import { isRunningAccountTask } from '@deepseek-ai/dsh-deepseek-account'
 import type {} from '@deepseek-ai/dsh-agent'
 import type { AccountBonusBatch, AccountBonusOrderId, AccountClientMetadata, AccountDetails, AccountGroups, AccountUserId } from '@deepseek-ai/dsh-deepseek-account/types'
-import type { AccountGroupId, AccountGroupKeys } from '@deepseek-ai/dsh-deepseek-account/types'
+import type { AccountGroupId, AccountGroupKeys, AccountKeyCreation } from '@deepseek-ai/dsh-deepseek-account/types'
 import type { AccountView, SignInAttemptId } from './types.ts'
 
 /** Account commands and reconnect-safe state stream. */
@@ -31,6 +31,13 @@ export class AccountController extends TypertRemoteService {
    */
   @Remote
   getGroupKeys(groupId: AccountGroupId): Promise<AccountGroupKeys> { return this.ctx.deepseekAccount.getGroupKeys(groupId) }
+  /**
+   * Create a key for the selected group after an explicit user action.
+   * @param groupId - selected account group.
+   * @returns creation identity or refusal; an unknown outcome requires refreshing before another attempt.
+   */
+  @Remote
+  createGroupKey(groupId: AccountGroupId): Promise<AccountKeyCreation> { return this.ctx.deepseekAccount.createGroupKey(groupId) }
   /**
    * Query display-safe Platform profile data.
    * @param client - identity of the requesting UI; the Host derives Platform request headers from it.

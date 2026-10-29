@@ -37,6 +37,9 @@ export interface AccountGroupKey {
 /** Usable keys for one group; null indicates an absent, changed, or unsupported account. */
 export type AccountGroupKeys = { readonly status: 'ready'; readonly value: readonly AccountGroupKey[] }
   | { readonly status: 'failed' } | null
+/** Creation outcome; unknown requires refreshing the group list before another creation. */
+export type AccountKeyCreation = { readonly status: 'created'; readonly id: AccountApiKeyId }
+  | { readonly status: 'failed' | 'unknown' } | null
 /**
  * Safe failure codes rendered through the caller's locale dictionary.
  * `no-response`: fetch returned no Response; `network`: HTTP or account-detail retrieval failure.

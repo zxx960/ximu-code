@@ -1,0 +1,1 @@
+GroupChoose a groupGroup AGroup BBase URLAPI protocolOpenAI Chat CompletionsOpenAI ResponsesAnthropic MessagesAPI keyChoose an API keyThis group has no available API keys.Create keyRetryModelsFetch available modelsNo models will be shown in the selector. Unlisted IDs can still be sent directly.Add modelCancelCreate provider

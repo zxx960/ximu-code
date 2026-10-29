@@ -40,6 +40,8 @@ Account consumers read stored login state, start or cancel a browser login, and 
 
 `getGroupKeys(groupId)` explicitly queries usable inference keys for a selected group. Ready results carry key IDs, names, and inference secrets for a configuration draft; failures carry no keys, and absent, changed, or unsupported accounts return null. Consumers render only IDs and names and persist a chosen secret through credentials, never settings or logs.
 
+`createGroupKey(groupId)` requires an explicit user action and returns an `AccountKeyCreation`: a created ID, a definite failure, an unknown outcome requiring a list refresh, or null when absent, unsupported, or authorization is rejected. Creation results contain no secrets. Providers without key creation support return null.
+
 Successful local sign-out emits `deepseek-account/signed-out`. The platform provider installs the account-owned cancellation listener, which checks running Agents against `session.requestContext().provider` and cancels account tasks while retaining inboxes. The account controller uses the same predicate for its confirmation dialog. No additional Agent state is maintained. Before a new turn binds its first request, this predicate still sees the previous turn’s provider.
 
 The service defines account operations and reconnectable state snapshots. The platform provider owns the protocol and stored grant. Credentials are Host-only; the API controller exports state and commands without resolveToken.

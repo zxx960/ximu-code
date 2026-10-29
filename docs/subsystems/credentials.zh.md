@@ -68,6 +68,8 @@ AccountDetails.balance 将充值钱包投影为 value、赠送钱包投影为 bo
 
 `AccountGroupKeys` 对显式请求的推理密钥采用相同的 ready、failed 和 null 结果。`AccountGroupKey` 包含带品牌的数值 `AccountApiKeyId`、名称和密钥原文；配置草稿只显示 ID 与名称，并通过凭据保存所选密钥。不支持分组密钥的提供方，其 `getGroupKeys(groupId)` 默认返回 null。
 
+`AccountKeyCreation` 返回已创建密钥的 ID、明确拒绝时的 `failed`、服务端可能已创建密钥时的 `unknown`，或在账号缺失、不支持或认证被拒绝时返回 null。结果未知时，调用方必须先刷新分组列表，再决定是否再次创建。创建操作不会返回密钥原文，也不会自动重试 POST。
+
 <!-- BEGIN GENERATED cordis-surface (gen-cordis-catalog.ts) — do not edit between markers -->
 
 <a id="cordis-surface"></a>
@@ -292,6 +294,13 @@ getGroups(): Promise<AccountGroups>
  * @returns transient inference keys or a query failure; null when absent, changed, or unsupported.
  */
 getGroupKeys(_groupId: AccountGroupId): Promise<AccountGroupKeys>
+
+/**
+ * Create one inference key only after an explicit user action.
+ * @param _groupId - selected account group.
+ * @returns created identity, definite refusal, or unknown outcome; null when absent, unsupported, or authorization is rejected.
+ */
+createGroupKey(_groupId: AccountGroupId): Promise<AccountKeyCreation>
 
 /**
  * Query Platform profile independently of wallet balances.

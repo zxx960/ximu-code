@@ -68,6 +68,8 @@ Password account providers expose `AccountView.loginMethod: password` and accept
 
 `AccountGroupKeys` uses the same ready, failed, and null outcomes for explicitly requested inference keys. `AccountGroupKey` carries a branded numeric `AccountApiKeyId`, name, and secret; configuration drafts render only IDs and names and save a chosen secret through credentials. `getGroupKeys(groupId)` defaults to null for providers without group-key support.
 
+`AccountKeyCreation` carries a created key ID, `failed` for a definite refusal, `unknown` when the server may have created a key, or null when absent, unsupported, or authorization is rejected. The caller must refresh the group list before another creation after an unknown outcome. Creation never returns the key secret or retries a POST automatically.
+
 <!-- BEGIN GENERATED cordis-surface (gen-cordis-catalog.ts) — do not edit between markers -->
 
 <a id="cordis-surface"></a>
@@ -292,6 +294,13 @@ getGroups(): Promise<AccountGroups>
  * @returns transient inference keys or a query failure; null when absent, changed, or unsupported.
  */
 getGroupKeys(_groupId: AccountGroupId): Promise<AccountGroupKeys>
+
+/**
+ * Create one inference key only after an explicit user action.
+ * @param _groupId - selected account group.
+ * @returns created identity, definite refusal, or unknown outcome; null when absent, unsupported, or authorization is rejected.
+ */
+createGroupKey(_groupId: AccountGroupId): Promise<AccountKeyCreation>
 
 /**
  * Query Platform profile independently of wallet balances.

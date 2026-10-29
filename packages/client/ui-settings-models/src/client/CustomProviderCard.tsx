@@ -25,7 +25,7 @@
  * offers each model those levels.
  */
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import type { JsonValue } from '@deepseek-ai/dsh-util-values'
 import { randomUUID } from '@deepseek-ai/dsh-util-crypto'
@@ -144,6 +144,34 @@ export function CustomProviderCard(props: CustomProviderCardProps): ReactNode {
   }>()
   const [keyAttempt, setKeyAttempt] = useState(0)
   const [selectedKeyId, setSelectedKeyId] = useState('')
+  const createKey = operations.createAccountGroupKey
+  const [keyCreation, setKeyCreation] = useState<{
+    groupId: string
+    status: 'pending' | 'created' | 'unknown' | 'failed' | 'signed-out'
+  }>()
+  const keyCreationActive = useRef(false)
+  const mounted = useRef(false)
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false } }, [])
+  const creatingKey = keyCreation?.status === 'pending'
+  const creationStatus = keyCreation?.groupId === groupId ? keyCreation.status : undefined
+  const createKeyOnce = async (): Promise<void> => {
+    if (createKey === undefined || selectedGroupId === undefined || keyCreationActive.current) return
+    keyCreationActive.current = true
+    const target = String(selectedGroupId)
+    setKeyCreation({ groupId: target, status: 'pending' })
+    try {
+      const result = await createKey(selectedGroupId)
+      if (!mounted.current) return
+      setKeyCreation({ groupId: target, status: result?.status ?? 'signed-out' })
+      if (result?.status === 'created') {
+        setKeyQuery(undefined)
+        setSelectedKeyId('')
+        setKeyAttempt(attempt => attempt + 1)
+      }
+    } catch {
+      if (mounted.current) setKeyCreation({ groupId: target, status: 'unknown' })
+    } finally { keyCreationActive.current = false }
+  }
   useEffect(() => {
     if (loadKeys === undefined || selectedGroupId === undefined) return
     let current = true
@@ -159,7 +187,7 @@ export function CustomProviderCard(props: CustomProviderCardProps): ReactNode {
   const [models, setModels] = useState<readonly ModelDraft[]>([])
   const [busy, setBusy] = useState(false)
   const [listBusy, setListBusy] = useState(false)
-  useEffect(() => { onBusyChange?.(busy || listBusy) }, [busy, listBusy, onBusyChange])
+  useEffect(() => { onBusyChange?.(busy || listBusy || creatingKey) }, [busy, listBusy, creatingKey, onBusyChange])
   const [failure, setFailure] = useState<string | undefined>(undefined)
   /**
    * The profile write landed. Only the key write can still be outstanding, so
@@ -168,7 +196,7 @@ export function CustomProviderCard(props: CustomProviderCardProps): ReactNode {
    */
   const [committed, setCommitted] = useState(false)
   if (props.automaticId && !busy && !committed && taken.includes(route)) setRoute(generateProviderId(taken))
-  const disabled = props.readOnly || busy
+  const disabled = props.readOnly || busy || creatingKey
   /** Everything but the key stops being editable once the provider exists. */
   const profileDisabled = disabled || committed
 
@@ -301,6 +329,7 @@ export function CustomProviderCard(props: CustomProviderCardProps): ReactNode {
               setGroupId(event.target.value)
               setSelectedKeyId('')
               setKeyQuery(undefined)
+              setKeyCreation(undefined)
             }}
           >
             <option value="" disabled>{t(groupResult === undefined ? 'accountGroupsLoading' : 'accountGroupChoose')}</option>
@@ -314,6 +343,7 @@ export function CustomProviderCard(props: CustomProviderCardProps): ReactNode {
               setGroupId('')
               setSelectedKeyId('')
               setKeyQuery(undefined)
+              setKeyCreation(undefined)
               setGroupAttempt(attempt => attempt + 1)
             }}>{t('retry')}</button>
           </div>}
@@ -371,13 +401,25 @@ export function CustomProviderCard(props: CustomProviderCardProps): ReactNode {
             {keys.map(item => <option key={item.id} value={String(item.id)}>{item.name ? `${item.name} (#${item.id})` : `#${item.id}`}</option>)}
           </select>
           {selectedGroup !== undefined && keyResult !== undefined && keys.length === 0 && <div role="status">
-            <p className={styles['error']}>{t(keyResult?.status === 'failed'
-              ? 'accountKeysFailed' : keyResult === null ? 'accountKeysSignedOut' : 'accountKeysEmpty')}</p>
-            <button type="button" className={styles['linkButton']} disabled={disabled || listBusy} onClick={() => {
-              setKeyQuery(undefined)
-              setSelectedKeyId('')
-              setKeyAttempt(attempt => attempt + 1)
-            }}>{t('retry')}</button>
+            <p className={styles['error']}>{t(creationStatus === 'unknown' ? 'accountKeyCreateUnknown'
+              : creationStatus === 'failed' ? 'accountKeyCreateFailed'
+                : creationStatus === 'created' ? 'accountKeyCreatedRefresh'
+                  : creationStatus === 'signed-out' ? 'accountKeysSignedOut'
+                    : keyResult?.status === 'failed' ? 'accountKeysFailed'
+                      : keyResult === null ? 'accountKeysSignedOut' : 'accountKeysEmpty')}</p>
+            <div className={styles['rowActions']}>
+              {keyResult?.status === 'ready' && createKey !== undefined && <button
+                type="button" className={styles['linkButton']}
+                disabled={profileDisabled || listBusy || creationStatus === 'unknown' || creationStatus === 'created'}
+                onClick={() => { void createKeyOnce() }}
+              >{t(creatingKey ? 'accountKeyCreating' : 'accountKeyCreate')}</button>}
+              <button type="button" className={styles['linkButton']} disabled={disabled || listBusy} onClick={() => {
+                setKeyQuery(undefined)
+                setSelectedKeyId('')
+                if (creationStatus !== 'created') setKeyCreation(undefined)
+                setKeyAttempt(attempt => attempt + 1)
+              }}>{t('retry')}</button>
+            </div>
           </div>}
         </> : <ApiKeyInput
           t={t}
@@ -419,10 +461,10 @@ export function CustomProviderCard(props: CustomProviderCardProps): ReactNode {
       {hint === undefined ? null : <p className={styles['advancedHint']}>{hint}</p>}
       <EditorFooter
         t={t}
-        busy={busy}
+        busy={busy || creatingKey}
         submitDisabled={disabled || !ready}
         submitLabelKey="create"
-        submitBusyLabelKey="creating"
+        submitBusyLabelKey={creatingKey ? 'create' : 'creating'}
         onCancel={() => { props.onClose(committed) }}
         onSubmit={() => { void create() }}
       />

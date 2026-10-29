@@ -6,7 +6,7 @@ import Schema from '@deepseek-ai/schemastery'
 import { z } from 'zod'
 import { credentialKey } from '@deepseek-ai/dsh-credentials'
 import { DeepSeekAccount, type AccountDetails, type AccountGroupId, type AccountGroups, type AccountView, type SignInAttemptView, type SignInAttemptId, type SignInErrorCode } from '@deepseek-ai/dsh-deepseek-account'
-import type { AccountApiKeyId, AccountGroupKey, AccountGroupKeys } from '@deepseek-ai/dsh-deepseek-account'
+import type { AccountApiKeyId, AccountGroupKey, AccountGroupKeys, AccountKeyCreation } from '@deepseek-ai/dsh-deepseek-account'
 
 const KEY = credentialKey('account-ximu', 'default')
 const grant = z.object({ version: z.literal(1), issuer: z.url(), token: z.string().regex(/^[\x21-\x7e]+$/) })
@@ -40,6 +40,8 @@ export interface Config {
   maxResponseBytes?: number
   /** Maximum pages admitted for one complete group-key query. */
   maxKeyPages?: number
+  /** Name assigned to a key created by an explicit user action. */
+  keyName?: string
   /** Permit loopback HTTP for local API fixtures only. */
   allowLoopbackHttp?: boolean
 }
@@ -49,11 +51,12 @@ export const Config = Schema.object({
   requestTimeoutMs: Schema.number().min(1).max(120_000).default(30_000),
   maxResponseBytes: Schema.number().min(1).max(1_048_576).step(1).default(65_536),
   maxKeyPages: Schema.number().min(1).max(1000).step(1).default(100),
+  keyName: Schema.string().pattern(/\S/).default('西牧ai'),
   allowLoopbackHttp: Schema.boolean().default(false),
 })
 
 class AccountError extends Error {
-  constructor(readonly code: SignInErrorCode) { super(`account: ${code}`) }
+  constructor(readonly code: SignInErrorCode, readonly responseStatus?: number) { super(`account: ${code}`) }
 }
 
 /** Stores only the management token; profile and balance reads share an in-flight auth/me request. */
@@ -68,6 +71,7 @@ export class XimuAccount extends DeepSeekAccount {
   private removing: Promise<AccountView> | undefined
   private readonly requests = new Set<Promise<unknown>>()
   private generation = 0
+  private creatingKey: { groupId: AccountGroupId; generation: number; promise: Promise<AccountKeyCreation> } | undefined
   private detail: { token: string; promise: Promise<z.infer<typeof account> | null> } | undefined
 
   /** @param ctx - Host credential owner. @param config - management API settings. */
@@ -92,6 +96,7 @@ export class XimuAccount extends DeepSeekAccount {
       if (!this.active?.committing) this.active?.controller.abort()
       await this.active?.done
       await this.removing
+      await this.creatingKey?.promise
       await Promise.allSettled(this.requests)
       this.changed()
     }, 'ximu: account lifetime')
@@ -250,6 +255,46 @@ export class XimuAccount extends DeepSeekAccount {
     }
   }
 
+  override createGroupKey(groupId: AccountGroupId): Promise<AccountKeyCreation> {
+    if (this.creatingKey !== undefined) {
+      return this.creatingKey.groupId === groupId && this.creatingKey.generation === this.generation
+        ? this.creatingKey.promise : Promise.resolve({ status: 'failed' })
+    }
+    const pending = { groupId, generation: this.generation, promise: Promise.resolve<AccountKeyCreation>(null) }
+    pending.promise = this.createKey(groupId, pending.generation).finally(() => {
+      if (this.creatingKey === pending) this.creatingKey = undefined
+    })
+    this.creatingKey = pending
+    return pending.promise
+  }
+
+  private async createKey(groupId: AccountGroupId, generation: number): Promise<AccountKeyCreation> {
+    let token: string | undefined
+    let submitted = false
+    try {
+      if (!z.number().int().positive().safeParse(groupId).success) return { status: 'failed' }
+      token = (await this.readGrant())?.token
+      if (token === undefined || generation !== this.generation || this.lifetime.signal.aborted) return null
+      submitted = true
+      const result = keyPage.shape.items.element.safeParse(await this.request('keys', {
+        method: 'POST', headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+        body: JSON.stringify({ name: this.settings.keyName, group_id: groupId }),
+      }, this.lifetime.signal))
+      this.lifetime.signal.throwIfAborted()
+      if (!result.success || (result.data.group_id !== undefined && result.data.group_id !== groupId)
+        || generation !== this.generation) return { status: 'unknown' }
+      return { status: 'created', id: result.data.id }
+    } catch (error) {
+      if (error instanceof AccountError && error.code === 'expired' && token !== undefined) {
+        await this.expireGrant(token, generation)
+        return null
+      }
+      const rejected = error instanceof AccountError && error.responseStatus !== undefined
+        && error.responseStatus >= 400 && error.responseStatus < 500 && error.responseStatus !== 408
+      return { status: submitted && !rejected ? 'unknown' : 'failed' }
+    }
+  }
+
   override getUnnotifiedBonuses(): Promise<null> { return Promise.resolve(null) }
   override ackBonusNotified(): Promise<boolean> { return Promise.resolve(false) }
   override resolveToken(): Promise<undefined> { return Promise.resolve(undefined) }
@@ -326,7 +371,7 @@ export class XimuAccount extends DeepSeekAccount {
     catch { throw new AccountError('no-response') }
     if (!response.ok) {
       await response.body?.cancel()
-      throw new AccountError(response.status === 401 ? login ? 'invalid-credentials' : 'expired' : 'network')
+      throw new AccountError(response.status === 401 ? login ? 'invalid-credentials' : 'expired' : 'network', response.status)
     }
     if (response.body === null) throw new AccountError('protocol')
     const reader = response.body.getReader()

@@ -17,6 +17,8 @@ Desktop custom model APIs use a group selector in place of a manual display name
 
 After choosing a group, select one of its usable API keys instead of typing a key. Switching groups clears the selection. The selected secret is used for model discovery and stored only when the provider is saved; queries do not create server-side keys.
 
+If the group has no usable keys, click **Create key** beside **Retry** to create one and refresh the list. This is an explicit server-side change; reopening or refreshing the form does not create keys.
+
 1. Sign in through the Desktop email/password form. Passwords are not saved.
 2. For a private deployment, set `baseURL` under the `ximu-account` row in `$DSH_HOME/profiles/desktop/cordis.patch.yml` to its HTTPS management API root.
 3. Open Settings → Account and confirm the email and recharge balance. Independently configured model API keys remain usable; this login does not provision model keys or inference routes.

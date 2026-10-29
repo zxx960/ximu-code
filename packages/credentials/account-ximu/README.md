@@ -29,6 +29,8 @@ The base bundle mounts this provider only for the Desktop profile. `baseURL` def
 
 `getGroupKeys(groupId)` reads `/keys?page=1&page_size=100&group_id=…` and follows every page within one `requestTimeoutMs` deadline. `maxKeyPages` defaults to 100; an incomplete, inconsistent, or oversized listing fails without returning partial keys. Only active keys for the requested group with remaining quota and no elapsed expiry are returned; omitted group IDs inherit the requested group. The explicit result contains inference secrets for the provider-creation draft, never the management token. Queries do not create keys or persist them.
 
+`createGroupKey(groupId)` submits one authenticated `POST keys` with the selected group and `keyName` (default `西牧ai`) after an explicit UI action. Overlapping calls for the same account generation and group share one submission. A successful result returns only the created key ID; callers refresh the list separately. Definite HTTP client refusals return `failed`, while network loss, server errors, invalid success replies, disposal, or account changes after submission return `unknown`. Unknown outcomes require a list refresh before another creation; the provider never retries a POST automatically.
+
 HTTP 401 on login reports invalid credentials. HTTP 401 on an authenticated account query removes the local login and publishes session expiry; other query failures retain the login and display a retryable failure. Sign-out removes the local token and retains independently configured model API keys. Cancellation prevents pending login responses from committing; an admitted credential write finishes before sign-out returns.
 
 <a id="model-experience"></a>
@@ -52,7 +54,7 @@ Account operations do not change model request prefixes.
 
 <a id="known-limitations-and-deferred-work"></a>
 
-- The management API documents neither token refresh nor remote logout. This plugin does not create keys or configure inference routes, model discovery, or online top-up pages. Login alone does not configure a model provider. The API supplies no stable account ID or balance currency.
+- The management API documents neither token refresh nor remote logout. This plugin does not configure inference routes, model discovery, or online top-up pages. Login alone does not configure a model provider. The API supplies no stable account ID or balance currency.
 
 <a id="dev-note"></a>
 ### Dev Note

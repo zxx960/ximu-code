@@ -967,12 +967,15 @@ describe('hand-declared providers', () => {
   it('queries groups only when enabled and turns Remote failures into a safe query status', async () => {
     const getGroups = vi.fn(async () => remoteFail('private Host diagnostics'))
     const getGroupKeys = vi.fn(async () => remoteFail('private key diagnostics'))
-    const ctx = ctxWith({ account: { getGroups, getGroupKeys } })
+    const createGroupKey = vi.fn(async () => remoteFail('private creation diagnostics'))
+    const ctx = ctxWith({ account: { getGroups, getGroupKeys, createGroupKey } })
     expect(createModelsOperations(ctx).listAccountGroups).toBeUndefined()
     expect(createModelsOperations(ctx).listAccountGroupKeys).toBeUndefined()
+    expect(createModelsOperations(ctx).createAccountGroupKey).toBeUndefined()
     expect(getGroups).not.toHaveBeenCalled()
     expect(await createModelsOperations(ctx, true).listAccountGroups?.()).toEqual({ status: 'failed' })
     expect(await createModelsOperations(ctx, true).listAccountGroupKeys?.(7 as GroupId)).toEqual({ status: 'failed' })
+    expect(await createModelsOperations(ctx, true).createAccountGroupKey?.(7 as GroupId)).toEqual({ status: 'unknown' })
   })
 
   it('opens with an editable default API address and preserves edits across form changes', () => {
@@ -1033,6 +1036,7 @@ describe('hand-declared providers', () => {
     wire: Parameters<typeof scriptedFace>[0] = {},
     listAccountGroups?: ModelsOperations['listAccountGroups'],
     listAccountGroupKeys?: ModelsOperations['listAccountGroupKeys'],
+    createAccountGroupKey?: ModelsOperations['createAccountGroupKey'],
   ) {
     const scripted = scriptedFace(wire)
     const onClose = vi.fn()
@@ -1046,7 +1050,8 @@ describe('hand-declared providers', () => {
         revision={7}
         operations={{ ...operationsWith(scripted.face),
           ...listAccountGroups === undefined ? {} : { listAccountGroups },
-          ...listAccountGroupKeys === undefined ? {} : { listAccountGroupKeys } }}
+          ...listAccountGroupKeys === undefined ? {} : { listAccountGroupKeys },
+          ...createAccountGroupKey === undefined ? {} : { createAccountGroupKey } }}
         t={t}
         readOnly={false}
         onClose={onClose}
@@ -1056,13 +1061,77 @@ describe('hand-declared providers', () => {
     return { ...scripted, onClose }
   }
 
-  function mountKeys(load: NonNullable<ModelsOperations['listAccountGroupKeys']>, wire: Parameters<typeof scriptedFace>[0] = {}) {
+  function mountKeys(load: NonNullable<ModelsOperations['listAccountGroupKeys']>, wire: Parameters<typeof scriptedFace>[0] = {},
+    create?: ModelsOperations['createAccountGroupKey']) {
     return mountCard({ automaticId: true, initialBaseURL: 'https://codex.ximuai.com' }, wire,
       async () => ({ status: 'ready', value: [
         { id: 7 as GroupId, name: 'Group A', platform: 'openai' },
         { id: 8 as GroupId, name: 'Group B', platform: 'anthropic' },
-      ] }), load)
+      ] }), load, create)
   }
+
+  it('creates a key from the empty group state and refreshes its options once', async () => {
+    const pending = Promise.withResolvers<Awaited<ReturnType<NonNullable<ModelsOperations['createAccountGroupKey']>>>>()
+    const create = vi.fn(() => pending.promise)
+    const load = vi.fn<NonNullable<ModelsOperations['listAccountGroupKeys']>>()
+      .mockResolvedValueOnce({ status: 'ready', value: [] })
+      .mockResolvedValueOnce({ status: 'ready', value: [{ id: 13 as KeyId, name: 'New key', key: 'private-new-key' }] })
+    mountKeys(load, {}, create)
+    await screen.findByRole('option', { name: 'Group A' })
+    fireEvent.change(screen.getByLabelText(en.accountGroup), { target: { value: '7' } })
+    await screen.findByText(en.accountKeysEmpty)
+    expect(create).not.toHaveBeenCalled()
+    expect(within(screen.getByRole('status')).getAllByRole('button').map(button => button.textContent))
+      .toEqual([en.accountKeyCreate, en.retry])
+    await expect(`${document.body.textContent}\n`).toMatchFileSnapshot('./expected/create-account-group-key.txt')
+    fireEvent.click(buttonNamed(en.accountKeyCreate))
+    expect(buttonNamed(en.accountKeyCreating).disabled).toBe(true)
+    expect(buttonNamed(en.retry).disabled).toBe(true)
+    expect(screen.getByLabelText<HTMLSelectElement>(en.accountGroup).disabled).toBe(true)
+    fireEvent.click(buttonNamed(en.accountKeyCreating))
+    expect(create).toHaveBeenCalledExactlyOnceWith(7)
+    await act(async () => { pending.resolve({ status: 'created', id: 13 as KeyId }) })
+    await screen.findByRole('option', { name: 'New key (#13)' })
+    expect(load).toHaveBeenCalledTimes(2)
+    expect(screen.queryByRole('button', { name: en.accountKeyCreate })).toBeNull()
+    expect(document.body.textContent).not.toContain('private-new-key')
+  })
+
+  it('retries only the list after a created key cannot be refreshed', async () => {
+    const create = vi.fn<NonNullable<ModelsOperations['createAccountGroupKey']>>()
+      .mockResolvedValue({ status: 'created', id: 13 as KeyId })
+    const load = vi.fn<NonNullable<ModelsOperations['listAccountGroupKeys']>>()
+      .mockResolvedValueOnce({ status: 'ready', value: [] }).mockResolvedValueOnce({ status: 'failed' })
+      .mockResolvedValueOnce({ status: 'ready', value: [{ id: 13 as KeyId, name: 'New key', key: 'private-new-key' }] })
+    mountKeys(load, {}, create)
+    await screen.findByRole('option', { name: 'Group A' })
+    fireEvent.change(screen.getByLabelText(en.accountGroup), { target: { value: '7' } })
+    fireEvent.click(await screen.findByRole('button', { name: en.accountKeyCreate }))
+    await screen.findByText(en.accountKeyCreatedRefresh)
+    expect(screen.queryByRole('button', { name: en.accountKeyCreate })).toBeNull()
+    fireEvent.click(buttonNamed(en.retry))
+    await screen.findByRole('option', { name: 'New key (#13)' })
+    expect(create).toHaveBeenCalledOnce()
+    expect(load).toHaveBeenCalledTimes(3)
+  })
+
+  it.each(['failed', 'unknown'] as const)('requires the proper recovery action after a %s creation', async (status) => {
+    const create = vi.fn<NonNullable<ModelsOperations['createAccountGroupKey']>>().mockResolvedValue({ status })
+    const load = vi.fn<NonNullable<ModelsOperations['listAccountGroupKeys']>>()
+      .mockResolvedValue({ status: 'ready', value: [] })
+    mountKeys(load, {}, create)
+    await screen.findByRole('option', { name: 'Group A' })
+    fireEvent.change(screen.getByLabelText(en.accountGroup), { target: { value: '7' } })
+    fireEvent.click(await screen.findByRole('button', { name: en.accountKeyCreate }))
+    await screen.findByText(status === 'failed' ? en.accountKeyCreateFailed : en.accountKeyCreateUnknown)
+    expect(buttonNamed(en.accountKeyCreate).disabled).toBe(status === 'unknown')
+    expect(create).toHaveBeenCalledOnce()
+    expect(load).toHaveBeenCalledOnce()
+    fireEvent.click(buttonNamed(en.retry))
+    await screen.findByText(en.accountKeysEmpty)
+    expect(buttonNamed(en.accountKeyCreate).disabled).toBe(false)
+    expect(create).toHaveBeenCalledOnce()
+  })
 
   it('uses the selected group key for model discovery and credential storage without showing its secret', async () => {
     const load = vi.fn<NonNullable<ModelsOperations['listAccountGroupKeys']>>().mockResolvedValue({ status: 'ready', value: [
