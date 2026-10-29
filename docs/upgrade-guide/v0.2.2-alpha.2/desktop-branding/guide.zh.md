@@ -9,7 +9,7 @@ description: "桌面端显示西牧code及所提供的图标，同时保留现�
 
 ## 变更
 
-桌面应用、原生菜单、安装器标签、侧栏与会话欢迎图使用 **西牧code** 及所提供的 logo。Windows 原生可执行文件名为 `ximu-code.exe`，macOS 为 `西牧code.app` 内的 `ximu-code`。`dsh` 命令与 `dsh` URL scheme 名称保持不变。浏览器部署保留原有品牌。
+桌面应用、原生菜单、安装器标签、侧栏与会话欢迎图使用 **西牧code** 及所提供的 logo。Windows 原生可执行文件名为 `ximu-code.exe`，macOS 为 `西牧code.app` 内的 `西牧code`。`dsh` 命令与 `dsh` URL scheme 名称保持不变。浏览器部署保留原有品牌。
 
 ## 迁移
 

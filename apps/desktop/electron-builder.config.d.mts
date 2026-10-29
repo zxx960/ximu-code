@@ -24,6 +24,7 @@ export interface DesktopElectronBuilderConfig {
     ...{ readonly from: string, readonly to: 'tray.ico' }[],
   ]
   readonly mac: {
+    readonly executableName: '西牧code'
     readonly extendInfo: {
       readonly CFBundleLocalizations: readonly string[]
       readonly NSMicrophoneUsageDescription: string

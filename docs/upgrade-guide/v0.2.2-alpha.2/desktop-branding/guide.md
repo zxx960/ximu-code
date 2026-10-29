@@ -9,7 +9,7 @@ English | [中文](guide.zh.md)
 
 ## Change
 
-The Desktop application, native menus, installer labels, sidebar, and conversation welcome artwork use **西牧code** and the supplied logo. Native executables are named `ximu-code.exe` on Windows and `ximu-code` inside `西牧code.app` on macOS. The `dsh` command and `dsh` URL scheme retain their names. Browser deployments keep their existing branding.
+The Desktop application, native menus, installer labels, sidebar, and conversation welcome artwork use **西牧code** and the supplied logo. Native executables are named `ximu-code.exe` on Windows and `西牧code` inside `西牧code.app` on macOS. The `dsh` command and `dsh` URL scheme retain their names. Browser deployments keep their existing branding.
 
 ## Migration
 

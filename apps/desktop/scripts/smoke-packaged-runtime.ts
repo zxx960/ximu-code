@@ -15,7 +15,7 @@ const artifacts = desktopArtifactOutput(paths, { unsigned: values.unsigned, skip
 const application = windows ? join(artifacts, 'win-unpacked')
   : join(artifacts, target === 'mac-arm64' ? 'mac-arm64' : 'mac', '西牧code.app', 'Contents')
 const resources = join(application, windows ? 'resources' : 'Resources')
-const executable = windows ? join(application, 'ximu-code.exe') : join(application, 'MacOS', 'ximu-code')
+const executable = windows ? join(application, 'ximu-code.exe') : join(application, 'MacOS', '西牧code')
 const descriptor = await verifyDesktopRuntime(paths.dsh, readDesktopRuntime(paths.dsh).release.version,
   resolveDesktopPackageTarget(target))
 if (windows && !values.unsigned) await verifyWindowsCode(application)

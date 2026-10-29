@@ -175,6 +175,8 @@ pnpm run package:desktop:mac:x64:unsigned
 
 添加 `--check` 仅验证本地配置和工具而不构建，或添加 `--dir` 只生成解包应用。DMG 路径为 `apps/desktop/.desktop-build/targets/<target>/unsigned-artifacts/deepseek-harness-<version>-mac-<arch>-unsigned.dmg`。所有检查通过后，命令打印 `DMG:` 及其绝对路径。打开后将应用复制到本地测试目录。
 
+没有本地 Mac 时，可使用[托管未签名工作流](../../../.github/workflows/macos-arm64-unsigned.yml)，在 GitHub 的 `macos-15` runner 上执行相同的 arm64 命令。推送 `build/macos-arm64-*` 分支即可启动；工作流进入默认分支后，也支持手动运行。成功运行将 DMG 和 `SHA256SUMS.txt` 保留在 `ximu-code-macos-arm64-unsigned-<run>-<attempt>` 产物中 14 天；诊断日志单独保留，失败时也会上传。该流程不使用签名或部署密钥，也不发布 Release。
+
 这些命令忽略 `.env.macos` 和继承的发布配置，使用 `com.deepseek.harness` 作为应用 ID，并省略自动更新和强制更新配置。构建工具、标准网络代理与 `DSH_DESKTOP_NPM_REGISTRY` 仍可从 shell 提供。它们跳过 Developer ID 签名、Apple 公证、临时签名钥匙串和公证代理修改。Electron 使用无需证书的本地 ad-hoc 签名，以便修改后的可执行文件能够运行；DMG 不签名。准备阶段和组装后的应用仍执行运行时完整性与冒烟检查。本地构建不生成更新源、ZIP 或发布完成记录，上传命令无法发布这些产物。macOS 可能要求在“系统设置 → 隐私与安全性”中批准打开未经公证的应用。
 
 <a id="macos-release-signing"></a>

@@ -50,7 +50,8 @@ describe('installer preparation preserves application dependencies', () => {
         config: { value: config },
         metadata: { value: metadata },
       })
-      const appInfo = new AppInfo(metadataPackager, undefined)
+      const appInfo = new AppInfo(metadataPackager, undefined, platform === 'darwin' ? config.mac : undefined)
+      expect(appInfo.productFilename).toBe(platform === 'darwin' ? '西牧code' : 'ximu-code')
       expect(appInfo.companyName).toBe('Hangzhou DeepSeek Artificial Intelligence Co., Ltd.')
       expect(appInfo.copyright).toBe(`Copyright © ${new Date().getFullYear()} 西牧code`)
       if (platform === 'win32') {

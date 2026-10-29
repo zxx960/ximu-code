@@ -1,0 +1,83 @@
+name: Build 西牧code · macOS M series · Unsigned
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ['build/macos-arm64-*']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: macos-arm64-unsigned-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  package:
+    runs-on: macos-15
+    timeout-minutes: 180
+    defaults:
+      run:
+        shell: bash
+    env:
+      DSH_DESKTOP_TARGET_PLATFORM: darwin
+      DSH_DESKTOP_TARGET_ARCH: arm64
+      DSH_GATE_CONCURRENCY: '2'
+      DSH_TELEMETRY_DISABLED: '1'
+      DSH_DESKTOP_OPEN_DEVTOOLS: '0'
+    steps:
+      - uses: actions/checkout@v7.0.1
+        id: checkout
+        with:
+          persist-credentials: false
+      - name: Configure job-owned package caches
+        run: |
+          printf 'DSH_DESKTOP_PACKAGE_CACHE_DIR=%s/ximu-desktop-package-cache\nPNPM_CONFIG_STORE_DIR=%s/ximu-pnpm-store\n' "$RUNNER_TEMP" "$RUNNER_TEMP" >> "$GITHUB_ENV"
+      - uses: pnpm/action-setup@v5.0.0
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: '24'
+          cache: pnpm
+      - uses: actions/setup-python@v6.3.0
+        with:
+          python-version: '3.12'
+      - name: Check Apple Silicon runner and build tools
+        run: |
+          test "$(uname -m)" = arm64
+          node --version
+          pnpm --version
+          python3 --version
+          xcodebuild -version
+          df -h .
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Check local packaging configuration
+        run: pnpm run package:desktop:mac:arm64:unsigned --check
+      - name: Build and verify unsigned DMG
+        run: pnpm run package:desktop:mac:arm64:unsigned
+      - name: Record installer checksum
+        working-directory: apps/desktop/.desktop-build/targets/mac-arm64/unsigned-artifacts
+        run: shasum -a 256 ./*.dmg > SHA256SUMS.txt
+      - name: Upload Mac installer
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: ximu-code-macos-arm64-unsigned-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            apps/desktop/.desktop-build/targets/mac-arm64/unsigned-artifacts/*.dmg
+            apps/desktop/.desktop-build/targets/mac-arm64/unsigned-artifacts/SHA256SUMS.txt
+          include-hidden-files: true
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
+      - name: Retain packaging diagnostics
+        if: always() && steps.checkout.outcome == 'success'
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: ximu-code-macos-arm64-logs-${{ github.run_id }}-${{ github.run_attempt }}
+          path: apps/desktop/.desktop-build/packaging-runs/
+          include-hidden-files: true
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Summarize completed build
+        run: |
+          printf '### 西牧code for Apple Silicon\n\nCommit: `%s`\n\nDownload the unsigned DMG and SHA256SUMS.txt from this run’s installer artifact. Automatic and mandatory updates are disabled.\n' "$GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"
