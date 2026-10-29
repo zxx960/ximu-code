@@ -198,11 +198,13 @@ export class ModelsSettingsStore {
    * `remote.credentials` namespaces carry the directory and credential reads.
    * @param schema - settings-owned schema and immutable path operations.
    * @param describeFace - the shared mirror's describe face (namespace views and writability).
+   * @param hiddenProviders - provider IDs excluded from this page and its add-provider catalog.
    */
   constructor(
     private readonly ctx: ClientContext,
     private readonly schema: SettingsSchemaOperations,
     private readonly describeFace: SettingsDescribeFace,
+    private readonly hiddenProviders: readonly string[] = [],
   ) {}
 
   /**
@@ -245,6 +247,7 @@ export class ModelsSettingsStore {
       return
     }
     const providers = joinProviderDirectory(registered.value, declared.value)
+      .filter(entry => !this.hiddenProviders.includes(entry.provider))
     const writable = mirrored.view.writable
     const views: readonly SettingsNamespaceView[] = mirrored.view.namespaces
     const namespaces = new Map(views.map(view => [view.ns, view]))

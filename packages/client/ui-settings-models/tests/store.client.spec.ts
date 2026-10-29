@@ -162,6 +162,17 @@ function api(overrides: {
 }
 
 describe('ModelsSettingsStore', () => {
+  it.each([false, true])('omits a hidden provider from setup and existing rows (configured: %s)', async (configured) => {
+    const { ctx, mirror, seenRefs } = api({ describeSettings: async () => remoteOk({
+      writable: true, hasDocument: false,
+      namespaces: configured ? NAMESPACES : NAMESPACES.filter(view => view.ns !== 'llm-deepseek'),
+    }) })
+    const store = new ModelsSettingsStore(ctx, settingsSchema, mirror, ['deepseek-official'])
+    await store.load()
+    expect(store.store.getSnapshot().rows.map(row => row.entry.provider)).toEqual(['openai', 'anthropic', 'ghost'])
+    expect(seenRefs.flat()).not.toContain('DEEPSEEK_API_KEY')
+  })
+
   it('describes native variables without exposing secret values and respects the 64-reference limit', async () => {
     const providers = Array.from({ length: 65 }, (_, index) => ({
       provider: `fixture-${index}`, displayName: 'fixture', settingsNs: 'llm-pi-ai', settingsPath: ['providers', `fixture-${index}`], active: false,

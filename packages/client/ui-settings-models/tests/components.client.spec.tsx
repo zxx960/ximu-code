@@ -313,11 +313,11 @@ function cardSeatCalls(
     ])
 }
 
-async function mountFace(scripted: ReturnType<typeof scriptedFace>) {
+async function mountFace(scripted: ReturnType<typeof scriptedFace>, hiddenProviders: readonly string[] = []) {
   const { face, update, mutate, set, unset } = scripted
   const ctx = ctxWith(face)
   const mirror = new SettingsDescribeMirror(ctx)
-  const controller = new ModelsSettingsStore(ctx, settingsSchema, mirror)
+  const controller = new ModelsSettingsStore(ctx, settingsSchema, mirror, hiddenProviders)
   await controller.load()
   const renderSlot = stubRenderSlot()
   const injected: ModelsSectionProps = {
@@ -361,6 +361,15 @@ async function mountDeepSeekCard(overrides: Parameters<typeof scriptedFace>[0] =
 }
 
 describe('ModelsSection', () => {
+  it('omits the hidden official card and its add-provider entry while keeping other providers', async () => {
+    const { view } = await mountFace(scriptedFace({}), ['deepseek-official'])
+    expect(screen.queryByText('DeepSeek', { exact: true })).toBeNull()
+    expect(screen.getByRole('button', { name: en.add })).toBeTruthy()
+    await expect(`${view.container.textContent}\n`).toMatchFileSnapshot('./expected/hidden-official-provider.txt')
+    fireEvent.click(screen.getByRole('button', { name: en.add }))
+    expect(screen.queryByText('DeepSeek', { exact: true })).toBeNull()
+  })
+
   it('keeps the credential state unconfirmed when its redacted read fails', async () => {
     const scripted = scriptedFace()
     scripted.face.credentials.describe.mockResolvedValue(remoteFail('credentials unavailable', 'gateway/internal'))
