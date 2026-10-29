@@ -28,6 +28,7 @@
 import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import type { JsonValue } from '@deepseek-ai/dsh-util-values'
+import { randomUUID } from '@deepseek-ai/dsh-util-crypto'
 import { apiKeyFailure } from './apiKey.ts'
 import { ApiKeyInput } from './ApiKeyInput.tsx'
 import { EditorFooter } from './EditorFooter.tsx'
@@ -54,6 +55,15 @@ const NS = 'llm-pi-ai'
  */
 const ROUTE_PATTERN = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/
 
+/** Generate a valid ID absent from the current provider directory. */
+function generateProviderId(taken: readonly string[]): string {
+  const base = `custom-${randomUUID()}`
+  let candidate = base
+  let suffix = 1
+  while (taken.includes(candidate)) candidate = `${base}-${suffix++}`
+  return candidate
+}
+
 function isHttpUrl(value: string): boolean {
   try {
     const protocol = new URL(value).protocol
@@ -65,6 +75,8 @@ function isHttpUrl(value: string): boolean {
 
 /** Props of {@link CustomProviderCard}. */
 export interface CustomProviderCardProps {
+  /** Generate the internal route ID instead of displaying its input and guidance. */
+  automaticId: boolean
   /** Route ids already declared, so the card refuses to shadow one. */
   taken: readonly string[]
   /** Wire protocols the adapter can serve, in the order it reports them. */
@@ -101,7 +113,7 @@ export function CustomProviderCard(props: CustomProviderCardProps): ReactNode {
   const { taken, protocols, reasoningLevels, operations, t, onBusyChange } = props
   // The write is checked against the revision on which this draft was opened.
   const [openedAt] = useState(() => props.revision)
-  const [route, setRoute] = useState('')
+  const [route, setRoute] = useState(() => props.automaticId ? generateProviderId(taken) : '')
   const [displayName, setDisplayName] = useState('')
   const [baseURL, setBaseURL] = useState('')
   const [protocol, setProtocol] = useState(protocols[0] ?? '')
@@ -117,12 +129,13 @@ export function CustomProviderCard(props: CustomProviderCardProps): ReactNode {
    * the credential alone.
    */
   const [committed, setCommitted] = useState(false)
+  if (props.automaticId && !busy && !committed && taken.includes(route)) setRoute(generateProviderId(taken))
   const disabled = props.readOnly || busy
   /** Everything but the key stops being editable once the provider exists. */
   const profileDisabled = disabled || committed
 
   const routeInvalid = route.length > 0 && !ROUTE_PATTERN.test(route)
-  const routeTaken = taken.includes(route)
+  const routeTaken = !committed && taken.includes(route)
   const normalizedBaseURL = baseURL.trim()
   const baseUrlInvalid = baseURL.length > 0 && !isHttpUrl(normalizedBaseURL)
   // Rows are checked by the same per-row validator the editor cards use, so a
@@ -215,30 +228,32 @@ export function CustomProviderCard(props: CustomProviderCardProps): ReactNode {
 
   return (
     <div className={styles['editor']}>
-      <div className={styles['field']}>
-        <span className={styles['fieldLabel']}>{t('customRoute')}</span>
-        <input
-          className={styles['input']}
-          type="text"
-          value={route}
-          placeholder="acme-gateway"
-          aria-label={t('customRoute')}
-          disabled={profileDisabled}
-          onChange={(event) => { setRoute(event.target.value) }}
-        />
-      </div>
-      {/* A rejected id reads as a fault, not as guidance — the same split the
+      {!props.automaticId && <>
+        <div className={styles['field']}>
+          <span className={styles['fieldLabel']}>{t('customRoute')}</span>
+          <input
+            className={styles['input']}
+            type="text"
+            value={route}
+            placeholder="acme-gateway"
+            aria-label={t('customRoute')}
+            disabled={profileDisabled}
+            onChange={(event) => { setRoute(event.target.value) }}
+          />
+        </div>
+        {/* A rejected id reads as a fault, not as guidance — the same split the
           key field below already makes between its failure and its hint. */}
-      {routeInvalid || routeTaken
-        ? <p className={styles['error']}>{t(routeInvalid ? 'customRouteInvalid' : 'customRouteTaken')}</p>
-        : <p className={styles['advancedHint']}>{t('customRouteHint')}</p>}
+        {routeInvalid || routeTaken
+          ? <p className={styles['error']}>{t(routeInvalid ? 'customRouteInvalid' : 'customRouteTaken')}</p>
+          : <p className={styles['advancedHint']}>{t('customRouteHint')}</p>}
+      </>}
       <div className={styles['field']}>
         <span className={styles['fieldLabel']}>{t('customDisplayName')}</span>
         <input
           className={styles['input']}
           type="text"
           value={displayName}
-          placeholder={route.length === 0 ? t('customDisplayName') : route}
+          placeholder={props.automaticId || route.length === 0 ? t('customDisplayName') : route}
           aria-label={t('customDisplayName')}
           disabled={profileDisabled}
           onChange={(event) => { setDisplayName(event.target.value) }}

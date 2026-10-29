@@ -19,6 +19,7 @@ export function apply(ctx: Context, config: Config): void {
       value: {
         credentialOnboarding: config.credentialOnboarding, hiddenProviders: config.hiddenProviders,
         providerCatalog: config.providerCatalog,
+        automaticProviderIds: config.automaticProviderIds,
       },
     })
   })

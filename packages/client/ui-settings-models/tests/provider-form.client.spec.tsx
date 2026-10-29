@@ -7,6 +7,7 @@ import { Context } from '@deepseek-ai/cordis'
 import { bindSnapshotSelector, RemoteError } from '@deepseek-ai/dsh-client-test-runtime'
 import type { SettingsNamespaceView } from '@deepseek-ai/dsh-api-remotes/client'
 import type { JsonValue } from '@deepseek-ai/dsh-util-values'
+import * as providerIds from '@deepseek-ai/dsh-util-crypto'
 import { ModelsSection, providerCopy } from '../src/client/ModelsSection.tsx'
 import type { ModelsSectionInjected, ModelsSectionProps } from '../src/client/ModelsSection.tsx'
 import { CustomProviderCard } from '../src/client/CustomProviderCard.tsx'
@@ -212,6 +213,7 @@ async function mountSection(options: Parameters<typeof scriptedFace>[0] = {}) {
     ctxWith(scripted.face), settingsSchema, new SettingsDescribeMirror(ctxWith(scripted.face)))
   await controller.load()
   const injected: ModelsSectionProps = {
+    automaticProviderIds: false,
     providerCatalog: true,
     controller,
     useSnapshot: bindSnapshotSelector(controller.store),
@@ -785,6 +787,7 @@ describe('endpoint interrogation', () => {
     const scripted = scriptedFace()
     render(
       <CustomProviderCard
+        automaticId={false}
         taken={[]} protocols={PROTOCOLS} reasoningLevels={LEVELS} revision={7} operations={operationsWith(scripted.face)}
         t={t} readOnly={false} onClose={vi.fn()}
       />,
@@ -940,6 +943,7 @@ describe('provider rows', () => {
     await controller.load()
     render(<ModelsSection
       providerCatalog
+      automaticProviderIds={false}
       controller={controller}
       useSnapshot={bindSnapshotSelector(controller.store)}
       operations={operationsWith(scripted.face)}
@@ -955,6 +959,35 @@ describe('provider rows', () => {
 })
 
 describe('hand-declared providers', () => {
+  it.each([false, true])('keeps generated IDs distinct when the directory changes after opening: %s', async (arrivesLater) => {
+    const uuid = '00000000-0000-4000-8000-000000000000'
+    const randomUUID = vi.spyOn(providerIds, 'randomUUID').mockReturnValue(uuid)
+    try {
+      const existingId = `custom-${uuid}`
+      const taken = arrivesLater ? [] : [existingId]
+      const { mutate, set, onClose } = mountCard({ automaticId: true, taken })
+      expect(screen.queryByLabelText(en.customRoute)).toBeNull()
+      expect(screen.queryByText(en.customRouteHint)).toBeNull()
+      expect(screen.getByLabelText<HTMLInputElement>(en.customDisplayName).placeholder).toBe(en.customDisplayName)
+      if (arrivesLater) taken.push(existingId)
+      fireEvent.change(screen.getByLabelText(en.customDisplayName), { target: { value: 'Gateway' } })
+      fireEvent.change(screen.getByLabelText(en.baseUrl), { target: { value: 'https://gateway.example/v1' } })
+      fireEvent.change(screen.getByLabelText(en.keyInput), { target: { value: 'gateway-key' } })
+      fireEvent.click(screen.getByRole('button', { name: en.addModel }))
+      fireEvent.change(screen.getByLabelText(`${en.modelId} 1`), { target: { value: 'model-a' } })
+      fireEvent.click(screen.getByText(en.create))
+      await waitFor(() => { expect(onClose).toHaveBeenCalledWith(true) })
+      const generatedId = `${existingId}-1`
+      expect(firstMutate(mutate).ops[0]).toMatchObject({
+        path: ['providers', generatedId], value: {
+          displayName: 'Gateway', baseURL: 'https://gateway.example/v1',
+          apiKeyEnv: deriveKeyRef(generatedId), models: [{ id: 'model-a' }],
+        },
+      })
+      expect(set).toHaveBeenCalledExactlyOnceWith(deriveKeyRef(generatedId), 'gateway-key')
+    } finally { randomUUID.mockRestore() }
+  })
+
   function mountCard(
     overrides: Partial<Parameters<typeof CustomProviderCard>[0]> = {},
     wire: Parameters<typeof scriptedFace>[0] = {},
@@ -963,6 +996,7 @@ describe('hand-declared providers', () => {
     const onClose = vi.fn()
     render(
       <CustomProviderCard
+        automaticId={false}
         taken={['openai']}
         protocols={PROTOCOLS}
         reasoningLevels={LEVELS}
@@ -1207,13 +1241,14 @@ describe('hand-declared providers', () => {
     expect(buttonNamed(en.apply).disabled).toBe(declared)
   })
 
-  it('retries only the key after the profile landed, and reports the provider on cancel', async () => {
+  it.each([false, true])('retries only the key after profile creation (automatic ID: %s)', async (automaticId) => {
     const set = vi.fn()
       .mockResolvedValueOnce(remoteFail('credential store is read-only'))
       .mockResolvedValueOnce(remoteOk(undefined))
-    const { mutate, onClose } = mountCard({}, { set })
+    const taken = ['openai']
+    const { mutate, onClose } = mountCard({ automaticId, taken }, { set })
 
-    fireEvent.change(screen.getByLabelText(en.customRoute), { target: { value: 'acme' } })
+    if (!automaticId) fireEvent.change(screen.getByLabelText(en.customRoute), { target: { value: 'acme' } })
     fireEvent.change(screen.getByLabelText(en.baseUrl), { target: { value: 'https://acme.test/v1' } })
     fireEvent.change(screen.getByLabelText(en.keyInput), { target: { value: '  gw-key  ' } })
     fireEvent.click(screen.getByRole('button', { name: en.addModel }))
@@ -1225,11 +1260,14 @@ describe('hand-declared providers', () => {
     expect(onClose).not.toHaveBeenCalled()
     expect(mutate).toHaveBeenCalledTimes(1)
     // The key is stored trimmed, matching the editor.
-    expect(set).toHaveBeenNthCalledWith(1, 'ACME_API_KEY', 'gw-key')
+    const createdId = firstMutate(mutate).ops[0]!.path[1]!
+    taken.push(createdId)
+    expect(set).toHaveBeenNthCalledWith(1, deriveKeyRef(createdId), 'gw-key')
 
     // The provider exists now, so the fields describing it are settled and
     // only the key can still be corrected.
-    expect(screen.getByLabelText<HTMLInputElement>(en.customRoute).disabled).toBe(true)
+    if (automaticId) expect(screen.queryByLabelText(en.customRoute)).toBeNull()
+    else expect(screen.getByLabelText<HTMLInputElement>(en.customRoute).disabled).toBe(true)
     expect(screen.getByLabelText<HTMLInputElement>(en.baseUrl).disabled).toBe(true)
     expect(screen.getByLabelText<HTMLInputElement>(en.keyInput).disabled).toBe(false)
 
@@ -1240,7 +1278,7 @@ describe('hand-declared providers', () => {
     // first write superseded, so the Host would answer settings-conflict and
     // the key could never be stored from here at all.
     expect(mutate).toHaveBeenCalledTimes(1)
-    expect(set).toHaveBeenNthCalledWith(2, 'ACME_API_KEY', 'gw-key-2')
+    expect(set).toHaveBeenNthCalledWith(2, deriveKeyRef(createdId), 'gw-key-2')
   })
 
   it('reports the created provider when cancelled after its profile landed', async () => {

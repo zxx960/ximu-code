@@ -41,6 +41,8 @@ Host 配置 `credentialOnboarding` 默认为 `true`。Electron preload 标记会
 
 ### API 密钥
 
+`automaticProviderIds` 为每个自定义 API 表单自动生成唯一的内部标识，不显示 Provider ID 输入框。桌面端启用此选项，浏览器配置默认手动填写。配置保存后，标识保持不变，密钥写入失败后重试也沿用原标识。已有提供商标识保持不变。
+
 `providerCatalog` 控制添加提供商卡片中的第三方提供商目录，默认为 `true`。桌面端将其设为 `false`，直接打开自定义模型 API 表单；已有提供商条目仍可编辑。
 
 `hiddenProviders` 按提供商 ID 从模型设置及添加提供商目录中移除对应条目。桌面配置将其设为 `["deepseek-official"]`，因此不显示内置 DeepSeek API Key 配置卡。浏览器配置默认为空列表。此设置不删除已有凭据，也不改变模型调用路由。

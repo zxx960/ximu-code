@@ -663,6 +663,8 @@ export interface Config {
   hiddenProviders: string[]
   /** Offer the built-in third-party provider catalog when adding a model provider. */
   providerCatalog: boolean
+  /** Generate custom-provider IDs without displaying an ID input. */
+  automaticProviderIds: boolean
 }
 ```
 <!-- END GENERATED config-catalog:@deepseek-ai/dsh-client-ui-settings-models -->

@@ -306,6 +306,7 @@
       config:
         hiddenProviders: !!js "ctx.get('profileContext')?.name === 'desktop' ? ['deepseek-official'] : []"
         providerCatalog: !!js "ctx.get('profileContext')?.name !== 'desktop'"
+        automaticProviderIds: !!js "ctx.get('profileContext')?.name === 'desktop'"
 
     # Plugin management: the sidebar Plugins page installs, enables, disables,
     # and removes the profile's bundles through the `pluginManager` Remote.

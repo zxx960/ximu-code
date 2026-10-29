@@ -315,6 +315,7 @@ function cardSeatCalls(
 
 async function mountFace(
   scripted: ReturnType<typeof scriptedFace>, hiddenProviders: readonly string[] = [], providerCatalog = true,
+  automaticProviderIds = false,
 ) {
   const { face, update, mutate, set, unset } = scripted
   const ctx = ctxWith(face)
@@ -323,6 +324,7 @@ async function mountFace(
   await controller.load()
   const renderSlot = stubRenderSlot()
   const injected: ModelsSectionProps = {
+    automaticProviderIds,
     providerCatalog,
     controller,
     useSnapshot: bindSnapshotSelector(controller.store),
@@ -365,16 +367,17 @@ async function mountDeepSeekCard(overrides: Parameters<typeof scriptedFace>[0] =
 
 describe('ModelsSection', () => {
   it('opens only the custom API form when the provider catalog is disabled', async () => {
-    const { view } = await mountFace(scriptedFace({}), ['deepseek-official'], false)
+    const { view } = await mountFace(scriptedFace({}), ['deepseek-official'], false, true)
     fireEvent.click(screen.getByRole('button', { name: en.add }))
     expect(screen.queryByRole('tab', { name: en.addCatalog })).toBeNull()
     expect(screen.queryByText(en.addCatalogHint)).toBeNull()
     expect(screen.queryByLabelText(en.provider)).toBeNull()
-    expect(screen.getByLabelText(en.customRoute)).toBeTruthy()
+    expect(screen.queryByLabelText(en.customRoute)).toBeNull()
+    expect(screen.queryByText(en.customRouteHint)).toBeNull()
     await expect(`${view.container.textContent}\n`).toMatchFileSnapshot('./expected/custom-only-add-provider.txt')
     fireEvent.click(screen.getByRole('button', { name: en.cancel }))
     fireEvent.click(screen.getByRole('button', { name: en.add }))
-    expect(screen.getByLabelText<HTMLInputElement>(en.customRoute).value).toBe('')
+    expect(screen.getByLabelText<HTMLInputElement>(en.customDisplayName).value).toBe('')
   })
 
   it('omits the hidden official card and its add-provider entry while keeping other providers', async () => {
@@ -416,6 +419,7 @@ describe('ModelsSection', () => {
       expect(controller.store.getSnapshot().namespaces.get('llm-deepseek')?.revision).toBe(0)
       render(<ModelsSection
         providerCatalog
+        automaticProviderIds={false}
         controller={controller}
         useSnapshot={bindSnapshotSelector(controller.store)}
         operations={operationsWith(face)}
@@ -778,6 +782,7 @@ describe('ModelsSection', () => {
     await controller.load()
     render(<ModelsSection
       providerCatalog
+      automaticProviderIds={false}
       controller={controller}
       useSnapshot={bindSnapshotSelector(controller.store)}
       operations={operationsWith(face)}
@@ -804,6 +809,7 @@ describe('ModelsSection', () => {
     cleanup()
     render(<ModelsSection
       providerCatalog
+      automaticProviderIds={false}
       controller={controller}
       useSnapshot={bindSnapshotSelector(controller.store)}
       operations={operationsWith(face)}
@@ -1612,6 +1618,7 @@ describe('ModelsSection', () => {
     await controller.load()
     render(<ModelsSection
       providerCatalog
+      automaticProviderIds={false}
       controller={controller}
       useSnapshot={bindSnapshotSelector(controller.store)}
       operations={operationsWith(face)}
@@ -1736,6 +1743,7 @@ describe('ModelsSection', () => {
     await controller.load()
     render(<ModelsSection
       providerCatalog
+      automaticProviderIds={false}
       controller={controller}
       useSnapshot={bindSnapshotSelector(controller.store)}
       operations={operationsWith(face.face)}
@@ -1760,6 +1768,7 @@ describe('ModelsSection', () => {
     cleanup()
     render(<ModelsSection
       providerCatalog
+      automaticProviderIds={false}
       controller={controller}
       useSnapshot={bindSnapshotSelector(controller.store)}
       operations={operationsWith(face)}
@@ -2084,6 +2093,7 @@ describe('ModelsSection', () => {
     const controller = new ModelsSettingsStore(ctxWith(face), settingsSchema, new SettingsDescribeMirror(ctxWith(face)))
     render(<ModelsSection
       providerCatalog
+      automaticProviderIds={false}
       controller={controller}
       useSnapshot={bindSnapshotSelector(controller.store)}
       operations={operationsWith(face)}

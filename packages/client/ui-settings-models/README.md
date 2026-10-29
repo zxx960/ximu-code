@@ -41,6 +41,8 @@ Host configuration `credentialOnboarding` defaults to `true`. The Electron prelo
 
 ### API keys
 
+`automaticProviderIds` generates an internal unique ID for each custom API form instead of showing a Provider ID input. Desktop enables it; browser profiles default to manual IDs. The ID stays fixed after the profile is saved, including retries of a failed key write. Existing provider IDs are retained.
+
 `providerCatalog` controls the third-party provider catalog in the add-provider card. It defaults to `true`; Desktop sets it to `false` and opens the custom model API form directly. Existing provider rows remain editable.
 
 `hiddenProviders` omits matching provider IDs from Models settings and its add-provider catalog. The Desktop profile sets it to `["deepseek-official"]`, so the built-in DeepSeek API-key card is absent. Browser profiles default to an empty list. This setting does not delete saved credentials or change inference routes.
