@@ -12,6 +12,7 @@ import { inject } from '../src/client/index.ts'
 import type { SettingsRootInjected } from '../src/client/shell-contract.ts'
 import { SettingsRoot } from '../src/client/SettingsRoot.tsx'
 import type { DesktopUpdatePresentation } from '../src/types.ts'
+import type { createSettingsShellStore } from '../src/client/shell-store.ts'
 
 const SELF = '@deepseek-ai/dsh-client-ui-settings-general'
 const SIDEBAR = '@deepseek-ai/dsh-client-ui-sidebar'
@@ -50,6 +51,20 @@ const PRODUCT_ONBOARDING: readonly { id: string; order: number }[] = [
 ]
 
 describe('ui-settings-general shell', () => {
+  it('opens the requested section and releases navigation when the shell unloads', async ({ start }) => {
+    const c = await start()
+    const entry = c.ctx.slots.entries('sidebar.settings')[0]!
+    const store = (entry.store as ReturnType<typeof createSettingsShellStore>).create()
+    expect(store.getSnapshot()).toEqual({ open: false, activeId: undefined })
+    c.ctx.emit('settings/open-section', 'models')
+    expect(store.getSnapshot()).toEqual({ open: true, activeId: 'models' })
+    store.actions.close()
+    await c.unload(SELF)
+    await c.flush()
+    c.ctx.emit('settings/open-section', 'models')
+    expect(store.getSnapshot()).toEqual({ open: false, activeId: undefined })
+  }, COLD_BOOT_TIMEOUT_MS)
+
   it('shares one carrier subscription between both update locations and releases it on unload', async ({ start }) => {
     const initial = Promise.withResolvers<DesktopUpdatePresentation>()
     let publish: ((state: DesktopUpdatePresentation) => void) | undefined

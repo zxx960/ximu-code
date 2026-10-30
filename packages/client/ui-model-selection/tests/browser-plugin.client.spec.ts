@@ -206,6 +206,19 @@ async function bench(locale: 'zh' | 'en' = 'zh') {
 const projection = (id: string) => ({ sessionId: sid(id) })
 
 describe('ui-model-selection dual entry', () => {
+  it('requests the Models settings section from the composer seat', async () => {
+    const b = await bench()
+    try {
+      b.mint('empty')
+      const openSection = vi.fn()
+      b.ctx.on('settings/open-section', openSection)
+      b.seat().inject!(sid('empty')).openModelSettings()
+      expect(openSection).toHaveBeenCalledWith('models')
+    } finally {
+      await b.ctx.fiber.dispose()
+    }
+  })
+
   it('carries writer contention to the model seat and localizes the command failure', async () => {
     const b = await bench()
     b.mint('owned')

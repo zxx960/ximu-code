@@ -24,6 +24,18 @@ export type {
   SettingsDescribeFace, SettingsDescribeView, SettingsMirrorSnapshot,
 } from './settings-mirror.ts'
 
+declare module '@deepseek-ai/cordis' {
+  interface Events {
+    /**
+     * Open the settings dialog on a registered section in this browser.
+     * The shell handles requests only while settings access is available.
+     * @param id - Registered settings section id.
+     * @mode emit
+     */
+    'settings/open-section'(id: string): void
+  }
+}
+
 /**
  * Required services: the Remote namespace the mirror reads through and the
  * forwarded settings invalidation it refreshes on.
