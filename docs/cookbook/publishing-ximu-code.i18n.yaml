@@ -1,0 +1,22 @@
+# Bilingual-pair consistency record for publishing-ximu-code.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write docs/cookbook/publishing-ximu-code.md
+/publish-code-installers-and-download-page:
+  en: 66c772483b82d9a2
+  zh: 720bc77f38589c79
+/publish-code-installers-and-download-page/summary:
+  en: cd5694ca2fbedb7d
+  zh: 1573b037cd10506d
+/publish-code-installers-and-download-page/table-of-contents:
+  en: 56b72cae20434c7b
+  zh: 1c03fe70b2875342
+/publish-code-installers-and-download-page/publishing-steps:
+  en: 1b231e194cc5bfed
+  zh: 743395526dea1764
+/publish-code-installers-and-download-page/further-exploration:
+  en: 65c481113fd1e328
+  zh: c7e8f8b30f03c238
+/publish-code-installers-and-download-page/dev-note:
+  en: b75c8458928b72b9
+  zh: 003ba4e17b4b5269

@@ -126,6 +126,10 @@ Windows packaging/signing: [required reading](apps/desktop/windows-signing/READM
 
 Real-API tests/demos read `DEEPSEEK_API_KEY`, optional `DEEPSEEK_BASE_URL`, and root `.env`. cordis.yml allows `!!js` (never `!js`) under plugin `config` and entry `disabled`; other metadata stays literal, so conditional composition also uses overlays ([primer](docs/cordis-primer.md#loader-configuration)). Never commit credentials. CI e2e skips without a key; [testing.md](docs/testing.md) owns key policy.
 
+## 西牧code publishing
+
+For desktop installers and download-page releases, follow [the publishing workflow](docs/cookbook/publishing-ximu-code.md): verify both installers, upload to R2, update `ximu-code.html`, deploy the existing Cloudflare Worker, and verify production.
+
 ## Conventions
 
 - Packages use `@deepseek-ai/dsh-<name>`; vendor is [rescoped](docs/rescope.md) and `private: true`. Harness packages declare `@deepseek-ai/cordis` in `peerDependencies`/`devDependencies`. Workspace dependency sections use DSH `workspace:*`, vendor/native `workspace:~` ([rules](.agents/notes/implemented/process/2026-08-10-npm-release-sequences.md)).
