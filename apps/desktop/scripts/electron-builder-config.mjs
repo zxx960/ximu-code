@@ -245,7 +245,9 @@ export function createElectronBuilderConfig(
       )
     },
     win: {
-      icon: fileURLToPath(new URL('../resources/icon-windows.png', import.meta.url)),
+      icon: fileURLToPath(new URL('../resources/icon-windows.ico', import.meta.url)),
+      signAndEditExecutable: true,
+      signExecutable: !unsigned,
       forceCodeSigning: !unsigned,
       signtoolOptions: {
         sign: windowsSigner,

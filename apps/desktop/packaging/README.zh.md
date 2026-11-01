@@ -160,6 +160,8 @@ pnpm run package:desktop:win:x64:unsigned
 
 该命令忽略 preset、`.env.windows` 和继承的发布配置，使用 `com.deepseek.harness` 作为应用 ID，省略自动更新和强制更新；无需证书或更新服务。本机验收和 CI 使用 Node 24；其他工具为根 `packageManager` 固定版本的 pnpm、Git、PowerShell 7（`pwsh`）、tar、Python、Visual C++ Build Tools 和 Windows SDK。Python 不在 `PATH` 中时设置 `PYTHON`。命令将安装包写入 `.desktop-build/targets/win-x64/unsigned-artifacts/`，省略普通自动更新配置，清除签名凭据，且不生成发布完成记录。无需 EV 或上传凭据。签名打包和上传仍遵循正式发布要求。
 
+未签名 Windows 构建保留可执行文件资源编辑：`resources/icon-windows.ico` 提供程序及快捷方式图标，仅禁用签名。在 `apps/desktop` 中运行 `pnpm run render:icons`，可从 `resources/logo.jpg` 重新生成 ICO。打包运行时 smoke 会拒绝含 Electron 元数据、缺少图标尺寸或图标字节不同的可执行文件，包括通过 `--prepackaged` 复用的程序。
+
 先运行 `pnpm install --frozen-lockfile`，再运行 `pnpm run package:desktop:win:x64:unsigned --check` 校验配置和工具，最后执行上面的完整命令。打包自行执行完整构建和隔离的运行时 smoke，不调用在线模型。阶段日志保留在 `.desktop-build/packaging-runs/`；仅构建成功不代表安装包验证通过。依赖安装和运行时准备需要访问 npm、GitHub release 资源和 nodejs.org；网络需要时使用现有 registry 和代理配置。缓存与工具位置属于构建机器配置，不在跟踪文件中固定个人路径。
 
 <a id="local-macos-dmg-without-release-signing"></a>

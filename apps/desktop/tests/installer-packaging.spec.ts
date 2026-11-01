@@ -101,6 +101,9 @@ describe('installer preparation preserves application dependencies', () => {
     expect(config.artifactName).toBe('deepseek-harness-${version}-${os}-${arch}-unsigned.${ext}')
     expect(config.extraMetadata).not.toHaveProperty('dshMandatoryUpdatePolicy')
     expect(config.publish).toBeNull()
+    expect(config.win.signAndEditExecutable).toBe(true)
+    expect(config.win.signExecutable).toBe(false)
+    expect(config.win.icon).toMatch(/icon-windows\.ico$/u)
   })
 
   it('packages every preload entry point the shell loads', async () => {

@@ -8,6 +8,9 @@ const resources = new URL('../resources/', import.meta.url)
 const source = await readFile(new URL('logo.jpg', resources))
 const icon = await sharp(source).resize(1024, 1024, { fit: 'contain' }).png().toBuffer()
 for (const name of ['icon.png', 'icon-windows.png', 'icon-macos.png']) await writeFile(new URL(name, resources), icon)
+await writeFile(new URL('icon-windows.ico', resources), packIco(await Promise.all(
+  [16, 24, 32, 48, 64, 128, 256].map(async size => ({ size, png: await sharp(icon).resize(size, size).png().toBuffer() })),
+)))
 await writeFile(new URL('tray-windows.ico', resources), packIco(await renderTrayIconEntries(icon)))
 await writeFile(new URL('../renderer/assets/welcome-logo.png', import.meta.url),
   await sharp(source).resize(192, 192, { fit: 'contain' }).png().toBuffer())
