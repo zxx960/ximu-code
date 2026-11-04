@@ -4,12 +4,15 @@ import { platform, release } from 'node:os'
 import { Context, Service } from '@deepseek-ai/cordis'
 import Schema from '@deepseek-ai/schemastery'
 import { z } from 'zod'
-import { credentialKey } from '@deepseek-ai/dsh-credentials'
+import { credentialKey, type CredentialRecord } from '@deepseek-ai/dsh-credentials'
 import { DeepSeekAccount, type AccountDetails, type AccountGroupId, type AccountGroups, type AccountView, type SignInAttemptView, type SignInAttemptId, type SignInErrorCode } from '@deepseek-ai/dsh-deepseek-account'
 import type { AccountApiKeyId, AccountGroupKey, AccountGroupKeys, AccountKeyCreation } from '@deepseek-ai/dsh-deepseek-account'
 
 const KEY = credentialKey('account-ximu', 'default')
-const grant = z.object({ version: z.literal(1), issuer: z.url(), token: z.string().regex(/^[\x21-\x7e]+$/) })
+const token = z.string().regex(/^[\x21-\x7e]+$/)
+const tokenPair = z.object({ access_token: token, refresh_token: token })
+const grant = z.object({ version: z.literal(1), issuer: z.url(), token, refreshToken: token.optional(), sessionId: z.uuid().optional() })
+type Grant = z.infer<typeof grant>
 const account = z.object({ email: z.email(), balance: z.number() })
 const groups = z.array(z.object({
   id: z.number().int().positive().transform(id => id as AccountGroupId),
@@ -59,7 +62,7 @@ class AccountError extends Error {
   constructor(readonly code: SignInErrorCode, readonly responseStatus?: number) { super(`account: ${code}`) }
 }
 
-/** Stores only the management token; profile and balance reads share an in-flight auth/me request. */
+/** Stores and renews management credentials on the Host. Overlapping profile and balance reads share one request. */
 export class XimuAccount extends DeepSeekAccount {
   static inject = ['credentials']
   static Config = Config
@@ -71,6 +74,7 @@ export class XimuAccount extends DeepSeekAccount {
   private removing: Promise<AccountView> | undefined
   private readonly requests = new Set<Promise<unknown>>()
   private generation = 0
+  private pendingSave: { previous: Grant; renewed: Grant } | undefined
   private creatingKey: { groupId: AccountGroupId; generation: number; promise: Promise<AccountKeyCreation> } | undefined
   private detail: { token: string; promise: Promise<z.infer<typeof account> | null> } | undefined
 
@@ -132,15 +136,20 @@ export class XimuAccount extends DeepSeekAccount {
           method: 'POST', headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ email: parsedEmail.data, password }),
         }, controller.signal, true)
-        const token = z.object({ access_token: grant.shape.token }).safeParse(value)
-        if (!token.success) throw new AccountError('protocol')
+        const pair = tokenPair.partial({ refresh_token: true }).safeParse(value)
+        if (!pair.success) throw new AccountError('protocol')
+        const payload: Grant = { version: 1, issuer: this.settings.baseURL, token: pair.data.access_token }
+        if (pair.data.refresh_token !== undefined) {
+          payload.refreshToken = pair.data.refresh_token
+          payload.sessionId = randomUUID()
+        }
         controller.signal.throwIfAborted()
         this.lifetime.signal.throwIfAborted()
         operation.committing = true
         this.setPhase(id, 'committing')
         try {
-          await this.ctx.credentials.modifyRecord(KEY, () => Promise.resolve({ kind: 'grant',
-            payload: { version: 1, issuer: this.settings.baseURL, token: token.data.access_token } }))
+          await this.ctx.credentials.modifyRecord(KEY, () => Promise.resolve({ kind: 'grant', payload }))
+          this.pendingSave = undefined
         } catch { throw new AccountError('storage') }
         this.setPhase(id, 'succeeded')
       } catch (error) {
@@ -166,6 +175,7 @@ export class XimuAccount extends DeepSeekAccount {
     this.removing ??= (async () => {
       if (this.attempt !== null) await this.cancelSignIn(this.attempt.id)
       await this.ctx.credentials.deleteRecord(KEY)
+      this.pendingSave = undefined
       this.attempt = null
       this.ctx.emit('deepseek-account/signed-out')
       this.changed()
@@ -190,44 +200,37 @@ export class XimuAccount extends DeepSeekAccount {
 
   override async getGroups(): Promise<AccountGroups> {
     const generation = this.generation
-    let token: string | undefined
+    let stored: Grant | undefined
     try {
-      token = (await this.readGrant())?.token
-      if (token === undefined || generation !== this.generation || this.lifetime.signal.aborted) return null
-      const result = groups.safeParse(await this.request('groups/available', {
-        headers: { authorization: `Bearer ${token}` },
-      }, this.lifetime.signal))
+      stored = await this.readGrant()
+      if (stored === undefined || !await this.isCurrent(stored, generation)) return null
+      const { value } = await this.authenticatedRequest(stored, 'groups/available', {}, this.lifetime.signal)
+      const result = groups.safeParse(value)
       if (!result.success) throw new AccountError('protocol')
-      this.lifetime.signal.throwIfAborted()
-      return generation === this.generation ? { status: 'ready', value: result.data } : null
+      return await this.isCurrent(stored, generation) ? { status: 'ready', value: result.data } : null
     } catch (error) {
-      if (generation !== this.generation || this.lifetime.signal.aborted) return null
-      if (error instanceof AccountError && error.code === 'expired' && token !== undefined) {
-        await this.expireGrant(token, generation)
-        return null
-      }
-      return { status: 'failed' }
+      return await this.readFailure(error, stored, generation)
     }
   }
 
   override async getGroupKeys(groupId: AccountGroupId): Promise<AccountGroupKeys> {
     const generation = this.generation
-    let token: string | undefined
+    let stored: Grant | undefined
     try {
       if (!z.number().int().positive().safeParse(groupId).success) throw new AccountError('protocol')
-      token = (await this.readGrant())?.token
-      if (token === undefined || generation !== this.generation || this.lifetime.signal.aborted) return null
+      stored = await this.readGrant()
+      if (stored === undefined || !await this.isCurrent(stored, generation)) return null
       const deadline = AbortSignal.any([this.lifetime.signal, AbortSignal.timeout(this.settings.requestTimeoutMs)])
       const values: z.infer<typeof keyPage>['items'] = []
       const ids = new Set<AccountApiKeyId>()
       let pages = 1
       for (let page = 1; page <= pages; page++) {
         const query = new URLSearchParams({ page: String(page), page_size: '100', group_id: String(groupId) })
-        const result = keyPage.safeParse(await this.request(`keys?${query}`, {
-          headers: { authorization: `Bearer ${token}` },
-        }, deadline))
+        const response = await this.authenticatedRequest(stored, `keys?${query}`, {}, deadline)
+        stored = response.grant
+        const result = keyPage.safeParse(response.value)
         deadline.throwIfAborted()
-        if (generation !== this.generation) return null
+        if (!await this.isCurrent(stored, generation)) return null
         if (!result.success || result.data.pages > this.settings.maxKeyPages
           || (page > 1 && result.data.pages !== pages)
           || (result.data.pages === 0 && result.data.items.length > 0)) throw new AccountError('protocol')
@@ -246,12 +249,7 @@ export class XimuAccount extends DeepSeekAccount {
         .map(({ id, name, key }) => ({ id, name, key }))
       return { status: 'ready', value: keys }
     } catch (error) {
-      if (generation !== this.generation || this.lifetime.signal.aborted) return null
-      if (error instanceof AccountError && error.code === 'expired' && token !== undefined) {
-        await this.expireGrant(token, generation)
-        return null
-      }
-      return { status: 'failed' }
+      return await this.readFailure(error, stored, generation)
     }
   }
 
@@ -269,26 +267,22 @@ export class XimuAccount extends DeepSeekAccount {
   }
 
   private async createKey(groupId: AccountGroupId, generation: number): Promise<AccountKeyCreation> {
-    let token: string | undefined
     let submitted = false
     try {
       if (!z.number().int().positive().safeParse(groupId).success) return { status: 'failed' }
-      token = (await this.readGrant())?.token
-      if (token === undefined || generation !== this.generation || this.lifetime.signal.aborted) return null
+      const stored = await this.readGrant()
+      if (stored === undefined || !await this.isCurrent(stored, generation)) return null
       submitted = true
-      const result = keyPage.shape.items.element.safeParse(await this.request('keys', {
-        method: 'POST', headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+      const { value } = await this.authenticatedRequest(stored, 'keys', {
+        method: 'POST', headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ name: this.settings.keyName, group_id: groupId }),
-      }, this.lifetime.signal))
-      this.lifetime.signal.throwIfAborted()
+      }, this.lifetime.signal)
+      const result = keyPage.shape.items.element.safeParse(value)
       if (!result.success || (result.data.group_id !== undefined && result.data.group_id !== groupId)
-        || generation !== this.generation) return { status: 'unknown' }
+        || !await this.isCurrent(stored, generation)) return { status: 'unknown' }
       return { status: 'created', id: result.data.id }
     } catch (error) {
-      if (error instanceof AccountError && error.code === 'expired' && token !== undefined) {
-        await this.expireGrant(token, generation)
-        return null
-      }
+      if (error instanceof AccountError && error.code === 'expired') return null
       const rejected = error instanceof AccountError && error.responseStatus !== undefined
         && error.responseStatus >= 400 && error.responseStatus < 500 && error.responseStatus !== 408
       return { status: submitted && !rejected ? 'unknown' : 'failed' }
@@ -322,44 +316,133 @@ export class XimuAccount extends DeepSeekAccount {
     this.changed()
   }
 
-  private async readGrant(): Promise<z.infer<typeof grant> | undefined> {
-    const record = await this.ctx.credentials.readRecord(KEY)
+  private async readGrant(): Promise<Grant | undefined> {
+    return this.parseGrant(await this.ctx.credentials.readRecord(KEY))
+  }
+
+  private parseGrant(record: CredentialRecord | undefined): Grant | undefined {
     if (record === undefined) return undefined
     const result = record.kind === 'grant' ? grant.safeParse(record.payload) : undefined
     if (!result?.success || result.data.issuer !== this.settings.baseURL) throw new AccountError('storage')
     return result.data
   }
 
+  private sameSession(stored: Grant, current: Grant | undefined): boolean {
+    if (current === undefined) return false
+    return stored.sessionId === undefined ? stored.token === current.token : stored.sessionId === current.sessionId
+  }
+
+  private sameGrant(stored: Grant, current: Grant | undefined): boolean {
+    return current !== undefined && this.sameSession(stored, current)
+      && stored.token === current.token && stored.refreshToken === current.refreshToken
+  }
+
+  private async isCurrent(stored: Grant, generation: number): Promise<boolean> {
+    const matches = generation === this.generation || this.sameSession(stored, await this.readGrant())
+    return matches && this.removing === undefined && !this.lifetime.signal.aborted
+  }
+
+  private async readFailure(error: unknown, stored: Grant | undefined, generation: number): Promise<{ status: 'failed' } | null> {
+    if (error instanceof AccountError && error.code === 'expired') return null
+    return stored !== undefined && !await this.isCurrent(stored, generation) ? null : { status: 'failed' }
+  }
+
   private async readAccount(): Promise<z.infer<typeof account> | null> {
     const generation = this.generation
     const stored = await this.readGrant()
-    if (stored === undefined || generation !== this.generation || this.lifetime.signal.aborted) return null
+    if (stored === undefined || !await this.isCurrent(stored, generation)) return null
     if (this.detail?.token === stored.token) return this.detail.promise
     const pending = { token: stored.token, promise: Promise.resolve<z.infer<typeof account> | null>(null) }
     pending.promise = (async () => {
       try {
-        const result = account.safeParse(await this.request('auth/me', { headers: { authorization: `Bearer ${stored.token}` } }, this.lifetime.signal))
+        const { value } = await this.authenticatedRequest(stored, 'auth/me', {}, this.lifetime.signal)
+        const result = account.safeParse(value)
         if (!result.success) throw new AccountError('protocol')
-        return generation === this.generation ? result.data : null
+        return await this.isCurrent(stored, generation) ? result.data : null
       } catch (error) {
-        if (generation !== this.generation || this.lifetime.signal.aborted) return null
-        if (!(error instanceof AccountError) || error.code !== 'expired') throw error
-        await this.expireGrant(stored.token, generation)
-        return null
+        if (await this.readFailure(error, stored, generation) === null) return null
+        throw error
       }
     })().finally(() => { if (this.detail === pending) this.detail = undefined })
     this.detail = pending
     return pending.promise
   }
 
-  private async expireGrant(token: string, generation: number): Promise<void> {
-    if ((await this.readGrant())?.token !== token || generation !== this.generation || this.removing !== undefined) return
+  private async expireGrant(stored: Grant): Promise<void> {
+    const generation = this.generation
+    if (!this.sameGrant(stored, await this.readGrant()) || generation !== this.generation
+      || this.removing !== undefined || this.lifetime.signal.aborted) return
     await this.signOut()
     this.ctx.emit('deepseek-account/session-expired')
   }
 
+  private async authenticatedRequest(
+    stored: Grant, path: string, init: RequestInit, signal: AbortSignal,
+  ): Promise<{ value: unknown; grant: Grant }> {
+    const send = async (current: Grant) => {
+      const headers = new Headers(init.headers)
+      headers.set('authorization', `Bearer ${current.token}`)
+      return { value: await this.request(path, { ...init, headers }, signal), grant: current }
+    }
+    try { return await send(stored) }
+    catch (error) {
+      if (!(error instanceof AccountError) || error.code !== 'expired') throw error
+    }
+
+    let renewed: Grant | undefined
+    try {
+      if (stored.refreshToken !== undefined) renewed = await this.track(this.renewGrant(stored, signal))
+    } catch (error) {
+      if (error instanceof AccountError && error.code === 'expired') await this.expireGrant(stored)
+      // The authenticated request was rejected before the renewal failure.
+      throw new AccountError(error instanceof AccountError ? error.code : 'storage', 401)
+    }
+    const current = renewed === undefined ? undefined : await this.readGrant()
+    if (signal.aborted) throw new AccountError('no-response', 401)
+    if (renewed === undefined) {
+      await this.expireGrant(stored)
+      throw new AccountError('expired', 401)
+    }
+    if (this.removing !== undefined || !this.sameSession(renewed, current)) {
+      throw new AccountError('expired', 401)
+    }
+    try { return await send(renewed) }
+    catch (error) {
+      if (error instanceof AccountError && error.code === 'expired') await this.expireGrant(renewed)
+      throw error
+    }
+  }
+
+  private async renewGrant(stored: Grant, signal: AbortSignal): Promise<Grant | undefined> {
+    // The credential transaction serializes refresh-token rotation across processes.
+    const record = await this.ctx.credentials.modifyRecord(KEY, async (record) => {
+      const current = this.parseGrant(record)
+      if (current === undefined || !this.sameGrant(stored, current) || current.refreshToken === undefined
+        || this.removing !== undefined || signal.aborted || this.lifetime.signal.aborted) return undefined
+      if (this.pendingSave !== undefined && this.sameGrant(this.pendingSave.previous, current)) {
+        return { kind: 'grant', payload: this.pendingSave.renewed }
+      }
+      const value = await this.request('auth/refresh', {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ refresh_token: current.refreshToken }),
+      }, this.lifetime.signal)
+      const pair = tokenPair.safeParse(value)
+      if (!pair.success) throw new AccountError('protocol')
+      const renewed = { ...current, token: pair.data.access_token, refreshToken: pair.data.refresh_token }
+      this.pendingSave = { previous: current, renewed }
+      return { kind: 'grant', payload: renewed }
+    })
+    const current = this.parseGrant(record)
+    if (this.pendingSave !== undefined && this.sameGrant(this.pendingSave.renewed, current)) this.pendingSave = undefined
+    return this.sameSession(stored, current) && !this.sameGrant(stored, current) ? current : undefined
+  }
+
   private request(path: string, init: RequestInit, signal: AbortSignal, login = false): Promise<unknown> {
-    const pending = this.fetchResponse(path, init, signal, login).finally(() => { this.requests.delete(pending) })
+    return this.track(this.fetchResponse(path, init, signal, login))
+  }
+
+  private track<T>(request: Promise<T>): Promise<T> {
+    const pending = request.finally(() => { this.requests.delete(pending) })
     this.requests.add(pending)
     return pending
   }

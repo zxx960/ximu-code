@@ -15,7 +15,7 @@ Each package entry labels its data with three identifiers: `inject` lists the se
 ## `@deepseek-ai/dsh-account-ximu`
 
 - `inject`: `credentials`
-- `source`: [`packages/credentials/account-ximu/src/index.ts:34`](../packages/credentials/account-ximu/src/index.ts)
+- `source`: [`packages/credentials/account-ximu/src/index.ts:37`](../packages/credentials/account-ximu/src/index.ts)
 
 ```ts config-catalog
 /** Ximu management API and bounded request settings. */

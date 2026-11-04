@@ -296,6 +296,72 @@ it.each([false, true])('signs in and reads a currency-free recharge balance (wra
     .toEqual({ status: 'ready', value: [{ balance: '0' }], bonusWallets: [] })
 })
 
+it('shares refresh across concurrent requests and uses the rotated token on the next expiry', async () => {
+  const f = await fixture(true)
+  const api = f.ctx.deepseekAccount
+  f.loginResponse({ access_token: 'access-0', refresh_token: 'refresh-0' })
+  await api.signInWithPassword('test@example.com', 'synthetic-password')
+  let accepted = 1
+  const rotations: string[] = []
+  const createdWith: string[] = []
+  const expired = vi.fn()
+  f.ctx.on('deepseek-account/session-expired', expired)
+  vi.stubGlobal('fetch', async (url: string, init: RequestInit) => {
+    if (url.endsWith('/auth/refresh')) {
+      if (typeof init.body !== 'string') throw new Error('Expected a JSON refresh request')
+      const body = JSON.parse(init.body) as { refresh_token: string }
+      rotations.push(body.refresh_token)
+      expect(new Headers(init.headers).has('authorization')).toBe(false)
+      if (body.refresh_token !== 'refresh-' + String(accepted - 1)) return new Response('{}', { status: 401 })
+      return Response.json({ code: 0, data: { access_token: 'access-' + String(accepted), refresh_token: 'refresh-' + String(accepted) } })
+    }
+    if (new Headers(init.headers).get('authorization') !== 'Bearer access-' + String(accepted)) {
+      return new Response('{}', { status: 401 })
+    }
+    if (url.endsWith('/groups/available')) return Response.json([{ id: 7, name: 'Group', platform: 'openai' }])
+    if (url.endsWith('/keys') && init.method === 'POST') {
+      createdWith.push(String(accepted))
+      return Response.json({ id: 13, name: 'Test', key: 'synthetic-key', status: 'active', group_id: groupId })
+    }
+    return Response.json({ email: 'test@example.com', balance: 12.34 })
+  })
+  const [balance, groups] = await Promise.all([api.getBalance(client), api.getGroups()])
+  expect(balance).toMatchObject({ status: 'ready', value: [{ balance: '12.34' }] })
+  expect(groups).toMatchObject({ status: 'ready' })
+  expect(rotations).toEqual(['refresh-0'])
+  accepted++
+  expect(await api.getBalance(client)).toMatchObject({ status: 'ready' })
+  expect(rotations).toEqual(['refresh-0', 'refresh-1'])
+  expect(await f.ctx.credentials.readRecord(key)).toMatchObject({
+    kind: 'grant', payload: { token: 'access-2', refreshToken: 'refresh-2' },
+  })
+  accepted++
+  expect(await api.createGroupKey(groupId)).toEqual({ status: 'created', id: 13 })
+  expect(createdWith).toEqual(['3'])
+  expect(rotations).toEqual(['refresh-0', 'refresh-1', 'refresh-2'])
+  expect(await readFile(join(f.root, '.credentials.yaml'), 'utf8')).toContain('refresh-3')
+  expect(expired).not.toHaveBeenCalled()
+})
+
+it('retains the saved login during a refresh outage and expires it when refresh is rejected', async () => {
+  const f = await fixture()
+  const api = f.ctx.deepseekAccount
+  f.loginResponse({ access_token: 'access-0', refresh_token: 'refresh-0' })
+  await api.signInWithPassword('test@example.com', 'synthetic-password')
+  const expired = vi.fn()
+  f.ctx.on('deepseek-account/session-expired', expired)
+  vi.stubGlobal('fetch', async (url: string) => new Response('{}', {
+    status: url.endsWith('/auth/refresh') ? 503 : 401,
+  }))
+  expect(await api.getBalance(client)).toEqual({ status: 'failed' })
+  expect(await api.getState()).toMatchObject({ status: 'credential-stored' })
+  expect(expired).not.toHaveBeenCalled()
+  vi.stubGlobal('fetch', async () => new Response('{}', { status: 401 }))
+  expect(await api.getBalance(client)).toBeNull()
+  expect(await api.getState()).toMatchObject({ status: 'signed-out' })
+  expect(expired).toHaveBeenCalledOnce()
+})
+
 it('keeps authentication failures out of storage and permits retry', async () => {
   const f = await fixture()
   f.status(401)

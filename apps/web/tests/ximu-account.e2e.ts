@@ -7,24 +7,32 @@ import { chromium } from 'playwright'
 import { expect, it } from 'vitest'
 import { launchWebScaffold } from './scaffold.ts'
 
-it('signs in, refreshes the recharge balance, restores the login, and signs out in both themes', async () => {
+it('renews an expired Ximu login during startup and balance reads in both themes', async () => {
   let balance = 12.34
+  let access = 0
+  let refresh = 0
+  let refreshCalls = 0
   const server = createServer((req, res) => {
     res.setHeader('content-type', 'application/json')
-    if (req.method === 'POST' && req.url === '/api/v1/auth/login') {
+    if (req.method === 'POST' && (req.url === '/api/v1/auth/login' || req.url === '/api/v1/auth/refresh')) {
       let body = ''
       req.setEncoding('utf8')
       req.on('data', (chunk: string) => { body += chunk })
       req.on('end', () => {
         const input: unknown = JSON.parse(body)
-        if (typeof input !== 'object' || input === null || !('email' in input) || !('password' in input)
-          || input.email !== 'test@example.com' || input.password !== 'synthetic-password') {
+        const renewal = req.url === '/api/v1/auth/refresh'
+        const valid = typeof input === 'object' && input !== null && (renewal
+          ? 'refresh_token' in input && input.refresh_token === 'refresh-' + String(refresh)
+          : 'email' in input && 'password' in input
+            && input.email === 'test@example.com' && input.password === 'synthetic-password')
+        if (!valid) {
           res.writeHead(401).end('{}')
           return
         }
-        res.end(JSON.stringify({ code: 0, data: { access_token: 'synthetic-account-token' } }))
+        if (renewal) { refresh++; refreshCalls++ }
+        res.end(JSON.stringify({ code: 0, data: { access_token: 'access-' + String(access), refresh_token: 'refresh-' + String(refresh) } }))
       })
-    } else if (req.url === '/api/v1/auth/me' && req.headers.authorization === 'Bearer synthetic-account-token') {
+    } else if (req.url === '/api/v1/auth/me' && req.headers.authorization === 'Bearer access-' + String(access)) {
       res.end(JSON.stringify({ email: 'test@example.com', balance }))
     } else res.writeHead(401).end('{}')
   })
@@ -53,18 +61,25 @@ it('signs in, refreshes the recharge balance, restores the login, and signs out 
         await login.getByRole('button', { name: 'Sign in', exact: true }).click()
         await login.waitFor({ state: 'detached' })
         await expect.poll(() => menu.textContent()).toBe('test@example.com')
+        const beforeRenewal = refreshCalls
+        access++
         await page.reload()
         await expect.poll(() => menu.textContent()).toBe('test@example.com')
+        expect(refreshCalls).toBe(beforeRenewal + 1)
         await menu.click()
         await page.getByRole('menuitem', { name: 'Settings', exact: true }).click()
         const settings = page.getByRole('dialog', { name: 'Settings', exact: true })
         const account = settings.getByRole('region', { name: 'Account', exact: true })
         await expect.poll(() => account.textContent()).toContain(balance.toFixed(2))
         expect(await account.getByText('Granted balance', { exact: true }).count()).toBe(0)
-        expect(await account.getByRole('link', { name: 'Top up', exact: true }).count()).toBe(0)
+        expect(await account.getByRole('link', { name: 'Top up', exact: true }).getAttribute('href')).toBe(
+          'http://127.0.0.1:' + String(address.port) + '/purchase',
+        )
         balance += 1
+        access++
         await account.getByRole('button', { name: 'Refresh balance', exact: true }).click()
         await expect.poll(() => account.textContent()).toContain(balance.toFixed(2))
+        expect(refreshCalls).toBe(beforeRenewal + 2)
         const shots = join(import.meta.dirname, '../../../.artifacts/ximu-account')
         await mkdir(shots, { recursive: true })
         await page.screenshot({ path: join(shots, `${colorScheme}.png`) })
