@@ -26,7 +26,7 @@ jobs:
       DSH_TELEMETRY_DISABLED: '1'
       DSH_DESKTOP_OPEN_DEVTOOLS: '0'
     steps:
-      - uses: actions/checkout@v7.0.1
+      - uses: actions/checkout@v7
         id: checkout
         with:
           persist-credentials: false
