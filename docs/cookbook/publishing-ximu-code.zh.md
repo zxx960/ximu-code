@@ -17,7 +17,7 @@
 
 准备 Node >=24.9、仓库指定的 pnpm 版本、已认证的 Cloudflare 访问权限，以及所需版本和架构的安装包。本流程发布关闭自动更新与强制更新的未签名测试包，不调用签名桌面版的更新发布器。
 
-1. **收集安装包。** 核对版本、架构和源码提交。Windows x64 使用 `pnpm run package:desktop:win:x64:unsigned` 构建。在同一提交上运行 [Mac 工作流](../../.github/workflows/macos-arm64-unsigned.yml)，等待成功后下载安装包产物和 `SHA256SUMS.txt`。本地产物目录为 `apps/desktop/.desktop-build/targets/{win-x64,mac-arm64}/unsigned-artifacts/`。
+1. **收集安装包。** 核对版本、架构和源码提交。Windows x64 在装有 Visual Studio C++ 构建工具的主机上使用 `pnpm run package:desktop:win:x64:unsigned` 构建，或推送 `build/windows-x64-*` 分支运行 [Windows 工作流](../../.github/workflows/windows-x64-unsigned.yml)。在同一提交上运行 [Mac 工作流](../../.github/workflows/macos-arm64-unsigned.yml)，例如推送 `build/macos-arm64-*` 分支。等待各工作流成功后下载安装包产物和 `SHA256SUMS.txt`。本地产物目录为 `apps/desktop/.desktop-build/targets/{win-x64,mac-arm64}/unsigned-artifacts/`。
 2. **上传 R2。** 使用账户 `302809262cd0132cd9f3a9a40653c762`、桶 `wangpan`，前缀为 `ximu-code/<version>/<source-commit-short-hash>/`。公开对象命名为 `ximu-code-<version>-windows-x64-unsigned.exe` 和 `ximu-code-<version>-mac-arm64-unsigned.dmg`，按这些公开文件名生成 `SHA256SUMS.txt`。大文件使用 S3 分片上传，设置正确的 MIME、附件文件名和 `Cache-Control: public, max-age=31536000, immutable`。新构建使用新路径，保留现有对象。凭据只存于已认证的本机存储或进程环境变量，不写入源码、文档或日志。
 3. **验证下载。** 上传前计算本地 SHA256。完整读取上传后的每个对象，比较字节数与 SHA256，并确认 `https://wangpan.ximuai.com/<object-path>` 可公开访问。任一校验失败，停止修改官网链接。
 4. **修改页面。** 更新根目录的唯一源文件 `ximu-code.html`：下载链接、版本、架构和实际文件大小。下载按钮副文案只保留架构和大小，省略“未签名本地测试包”和“未公证测试包”。仅修改文案时保留现有链接，跳过安装包上传。

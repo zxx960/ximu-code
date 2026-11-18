@@ -1,0 +1,88 @@
+name: Build 西牧code · Windows x64 · Unsigned
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ['build/windows-x64-*']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-x64-unsigned-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  package:
+    runs-on: windows-2025
+    timeout-minutes: 180
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      DSH_GATE_CONCURRENCY: '2'
+      DSH_TELEMETRY_DISABLED: '1'
+      DSH_DESKTOP_OPEN_DEVTOOLS: '0'
+    steps:
+      - uses: actions/checkout@v7.0.1
+        id: checkout
+        with:
+          persist-credentials: false
+      - name: Enable Developer Mode (symlink support)
+        run: >-
+          reg add "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock"
+          /t REG_DWORD /f /v "AllowDevelopmentWithoutDevLicense" /d "1"
+      - name: Configure job-owned package caches
+        run: |
+          "DSH_DESKTOP_PACKAGE_CACHE_DIR=$env:RUNNER_TEMP\ximu-desktop-package-cache" >> $env:GITHUB_ENV
+          "PNPM_CONFIG_STORE_DIR=$env:RUNNER_TEMP\ximu-pnpm-store" >> $env:GITHUB_ENV
+      - uses: pnpm/action-setup@v5.0.0
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: '24'
+          cache: pnpm
+      - uses: actions/setup-python@v6.3.0
+        with:
+          python-version: '3.12'
+      - name: Check Windows runner and build tools
+        run: |
+          node --version
+          pnpm --version
+          python --version
+          Get-PSDrive -PSProvider FileSystem
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Check local packaging configuration
+        run: pnpm run package:desktop:win:x64:unsigned --check
+      - name: Build and verify unsigned installer
+        run: pnpm run package:desktop:win:x64:unsigned
+      - name: Record installer checksum
+        working-directory: apps/desktop/.desktop-build/targets/win-x64/unsigned-artifacts
+        run: |
+          Get-ChildItem -Filter *.exe | ForEach-Object {
+            "$((Get-FileHash -Algorithm SHA256 $_.FullName).Hash.ToLower())  $($_.Name)"
+          } | Set-Content -Encoding ascii SHA256SUMS.txt
+          Get-Content SHA256SUMS.txt
+      - name: Upload Windows installer
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: ximu-code-windows-x64-unsigned-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            apps/desktop/.desktop-build/targets/win-x64/unsigned-artifacts/*.exe
+            apps/desktop/.desktop-build/targets/win-x64/unsigned-artifacts/SHA256SUMS.txt
+          include-hidden-files: true
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
+      - name: Retain packaging diagnostics
+        if: always() && steps.checkout.outcome == 'success'
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: ximu-code-windows-x64-logs-${{ github.run_id }}-${{ github.run_attempt }}
+          path: apps/desktop/.desktop-build/packaging-runs/
+          include-hidden-files: true
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Summarize completed build
+        run: |
+          "### 西牧code for Windows x64`n`nCommit: ``$env:GITHUB_SHA```n`nDownload the unsigned installer and SHA256SUMS.txt from this run's installer artifact. Automatic and mandatory updates are disabled.`n" >> $env:GITHUB_STEP_SUMMARY
