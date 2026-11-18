@@ -340,6 +340,15 @@
     background: var(--dsw-alias-interactive-bg-hover);
     color: var(--dsw-alias-label-secondary);
   }
+
+  .fetchButton:hover:not(:disabled) {
+    color: var(--dsw-alias-state-business-primary);
+  }
+}
+
+.fetchButton {
+  color: var(--dsw-alias-state-business-primary);
+  font-weight: 500;
 }
 
 .advancedHint {

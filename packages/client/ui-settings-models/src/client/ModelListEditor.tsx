@@ -333,7 +333,7 @@ export function ModelListEditor(props: ModelListEditorProps): ReactNode {
           : null}
         <button
           type="button"
-          className={styles['linkButton']}
+          className={`${styles['linkButton']} ${styles['fetchButton']}`}
           disabled={disabled || busy || !askable || props.probeBlocked !== undefined}
           title={props.probeBlocked !== undefined
             ? t(props.probeBlocked)
